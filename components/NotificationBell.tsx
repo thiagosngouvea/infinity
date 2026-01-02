@@ -108,7 +108,7 @@ export default function NotificationBell() {
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-purple-400 hover:text-purple-300"
+                    className="text-xs text-red-400 hover:text-red-300"
                   >
                     Marcar todas como lidas
                   </button>

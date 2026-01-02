@@ -139,7 +139,7 @@ function RafflesContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -157,7 +157,7 @@ function RafflesContent() {
             {userData?.role === 'admin' && (
               <button
                 onClick={() => setShowCreateForm(!showCreateForm)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
               >
                 <Plus className="h-4 w-4" />
                 Criar Sorteio
@@ -180,7 +180,7 @@ function RafflesContent() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="Ex: Sorteio de Item Raro"
                 />
               </div>
@@ -192,7 +192,7 @@ function RafflesContent() {
                   onChange={(e) => setDescription(e.target.value)}
                   required
                   rows={3}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="Descreva o sorteio..."
                 />
               </div>
@@ -204,7 +204,7 @@ function RafflesContent() {
                   value={prize}
                   onChange={(e) => setPrize(e.target.value)}
                   required
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="Ex: Espada Lendária +12"
                 />
               </div>
@@ -212,7 +212,7 @@ function RafflesContent() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition"
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition"
                 >
                   Criar Sorteio
                 </button>
@@ -309,7 +309,7 @@ function RafflesContent() {
                       ) : (
                         <button
                           onClick={() => participate(raffle.id)}
-                          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
                         >
                           <Gift className="h-5 w-5" />
                           Participar do Sorteio

@@ -47,7 +47,7 @@ function RankingContent() {
   };
 
   const getRankBg = (position: number, isCurrentUser: boolean) => {
-    if (isCurrentUser) return 'bg-purple-900/50 border-purple-500';
+    if (isCurrentUser) return 'bg-red-900/50 border-red-500';
     if (position === 0) return 'bg-gradient-to-r from-yellow-900/30 to-yellow-800/30 border-yellow-600';
     if (position === 1) return 'bg-gradient-to-r from-gray-800/50 to-gray-700/50 border-gray-500';
     if (position === 2) return 'bg-gradient-to-r from-amber-900/30 to-amber-800/30 border-amber-700';
@@ -57,7 +57,7 @@ function RankingContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -82,17 +82,17 @@ function RankingContent() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Minha Posição */}
         {userPosition >= 0 && (
-          <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg p-6 mb-8 border border-purple-600">
+          <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-lg p-6 mb-8 border border-red-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Award className="h-12 w-12 text-purple-300" />
+                <Award className="h-12 w-12 text-red-300" />
                 <div>
-                  <p className="text-purple-200 text-sm">Sua Posição</p>
+                  <p className="text-red-200 text-sm">Sua Posição</p>
                   <p className="text-3xl font-bold text-white">#{userPosition + 1}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-purple-200 text-sm">Seus Pontos</p>
+                <p className="text-red-200 text-sm">Seus Pontos</p>
                 <p className="text-3xl font-bold text-white">{userData?.pontos || 0}</p>
               </div>
             </div>
@@ -129,7 +129,7 @@ function RankingContent() {
                             {member.nick}
                           </p>
                           {isCurrentUser && (
-                            <span className="px-2 py-1 bg-purple-600 rounded-full text-xs text-white">
+                            <span className="px-2 py-1 bg-red-600 rounded-full text-xs text-white">
                               Você
                             </span>
                           )}

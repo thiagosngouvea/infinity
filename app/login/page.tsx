@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { LogIn, Shield } from 'lucide-react';
+import Image from 'next/image';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -31,14 +32,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Shield className="h-16 w-16 text-purple-500" />
+            <Image src="/logo-infinity.png" alt="Logo Infinity" width={128} height={128} />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Clã Infinity</h1>
-          <p className="text-gray-400">Perfect World</p>
         </div>
 
         <div className="bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700">
@@ -57,7 +56,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="seu@email.com"
               />
             </div>
@@ -71,7 +70,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="••••••••"
               />
             </div>
@@ -79,7 +78,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
@@ -88,7 +87,7 @@ export default function Login() {
           <div className="mt-6 text-center">
             <p className="text-gray-400">
               Não tem uma conta?{' '}
-              <Link href="/register" className="text-purple-400 hover:text-purple-300 font-semibold">
+              <Link href="/register" className="text-red-400 hover:text-red-300 font-semibold">
                 Cadastre-se
               </Link>
             </p>

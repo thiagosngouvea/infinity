@@ -71,7 +71,7 @@ function DashboardContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -83,7 +83,7 @@ function DashboardContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-purple-500" />
+              <Shield className="h-8 w-8 text-red-500" />
               <span className="text-xl font-bold text-white">Clã Infinity</span>
             </div>
             <div className="flex items-center gap-4">
@@ -91,7 +91,7 @@ function DashboardContent() {
               {userData?.role === 'admin' && (
                 <Link
                   href="/admin"
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
                 >
                   <Users className="h-4 w-4" />
                   Admin
@@ -142,11 +142,11 @@ function DashboardContent() {
 
           <Link
             href="/raffles"
-            className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 hover:from-purple-700 hover:to-purple-900 transition cursor-pointer"
+            className="bg-gradient-to-br from-red-600 to-red-800 rounded-lg p-6 hover:from-red-700 hover:to-red-900 transition cursor-pointer"
           >
             <Gift className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Sorteios</h3>
-            <p className="text-purple-200 text-sm">Participar de sorteios</p>
+            <p className="text-red-200 text-sm">Participar de sorteios</p>
           </Link>
 
           <Link
@@ -178,7 +178,7 @@ function DashboardContent() {
                       <span className="text-xs text-gray-500">
                         {event.date.toLocaleDateString('pt-BR')} às {event.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <span className="text-xs px-2 py-1 bg-purple-600 rounded-full text-white">
+                      <span className="text-xs px-2 py-1 bg-red-600 rounded-full text-white">
                         {event.type}
                       </span>
                     </div>

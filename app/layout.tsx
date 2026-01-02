@@ -6,6 +6,9 @@ import { Toaster } from "react-hot-toast";
 export const metadata: Metadata = {
   title: "Clã Infinity - Perfect World",
   description: "Sistema de gerenciamento do clã Infinity",
+  icons: {
+    icon: "/logo-infinity.png",
+  },
 };
 
 export default function RootLayout({

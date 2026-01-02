@@ -80,7 +80,7 @@ function AdminContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -91,7 +91,7 @@ function AdminContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-purple-500" />
+              <Shield className="h-8 w-8 text-red-500" />
               <span className="text-xl font-bold text-white">Clã Infinity - Admin</span>
             </div>
             <Link

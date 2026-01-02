@@ -142,7 +142,7 @@ function EventsContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -160,7 +160,7 @@ function EventsContent() {
             {userData?.role === 'admin' && (
               <button
                 onClick={() => setShowCreateForm(!showCreateForm)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
               >
                 <Plus className="h-4 w-4" />
                 Criar Evento
@@ -183,7 +183,7 @@ function EventsContent() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
 
@@ -194,7 +194,7 @@ function EventsContent() {
                   onChange={(e) => setDescription(e.target.value)}
                   required
                   rows={3}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
 
@@ -206,7 +206,7 @@ function EventsContent() {
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
 
@@ -217,7 +217,7 @@ function EventsContent() {
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     required
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
 
@@ -226,7 +226,7 @@ function EventsContent() {
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value as Event['type'])}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   >
                     {eventTypes.map(t => (
                       <option key={t} value={t}>{t}</option>
@@ -238,7 +238,7 @@ function EventsContent() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition"
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition"
                 >
                   Criar Evento
                 </button>
@@ -271,7 +271,7 @@ function EventsContent() {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-xl font-bold text-white">{event.title}</h3>
-                        <span className="px-2 py-1 bg-purple-600 rounded-full text-xs text-white">
+                        <span className="px-2 py-1 bg-red-600 rounded-full text-xs text-white">
                           {event.type}
                         </span>
                       </div>
@@ -307,7 +307,7 @@ function EventsContent() {
                       </p>
                       <button
                         onClick={() => vote(event.id, !myVote.canParticipate)}
-                        className="mt-2 text-sm text-purple-400 hover:text-purple-300"
+                        className="mt-2 text-sm text-red-400 hover:text-red-300"
                       >
                         Alterar voto
                       </button>
