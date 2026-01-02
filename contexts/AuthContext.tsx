@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       role: 'pending',
       pontos: 0,
+      totalPointsEarned: 0,
       createdAt: new Date()
     });
   };

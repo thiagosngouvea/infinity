@@ -76,7 +76,8 @@ function AttendanceContent() {
 
       // Atualizar pontos do usuário
       await updateDoc(doc(db, 'users', userData.id), {
-        pontos: increment(pontos)
+        pontos: increment(pontos),
+        totalPointsEarned: increment(pontos)
       });
 
       toast.success(`Presença registrada! +${pontos} pontos`);

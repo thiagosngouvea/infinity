@@ -21,6 +21,7 @@ export interface User {
   whatsapp: string;
   role: UserRole;
   pontos: number;
+  totalPointsEarned: number; // Total de pontos acumulados (nunca diminui)
   createdAt: Date;
   approvedAt?: Date;
   approvedBy?: string;
@@ -79,5 +80,30 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: Date;
+}
+
+export interface Item {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  pointsCost: number;
+  stock: number;
+  active: boolean;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface Redemption {
+  id: string;
+  itemId: string;
+  itemName: string;
+  userId: string;
+  userName: string;
+  pointsSpent: number;
+  status: 'pending' | 'delivered' | 'cancelled';
+  createdAt: Date;
+  deliveredAt?: Date;
+  deliveredBy?: string;
 }
 

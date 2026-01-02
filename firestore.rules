@@ -69,6 +69,24 @@ service cloud.firestore {
       // Admins can delete notifications
       allow delete: if isAdmin();
     }
+    
+    // Items collection (Store)
+    match /items/{itemId} {
+      // Anyone authenticated can read items
+      allow read: if isAuthenticated();
+      // Only admins can create, update, or delete items
+      allow write: if isAdmin();
+    }
+    
+    // Redemptions collection (Store)
+    match /redemptions/{redemptionId} {
+      // Anyone authenticated can read redemptions
+      allow read: if isAuthenticated();
+      // Anyone authenticated can create a redemption (redeem an item)
+      allow create: if isAuthenticated();
+      // Only admins can update or delete redemptions (mark as delivered, cancel, etc)
+      allow update, delete: if isAdmin();
+    }
   }
 }
 

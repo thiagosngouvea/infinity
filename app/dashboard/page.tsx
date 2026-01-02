@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Event, Notification } from '@/types';
-import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle } from 'lucide-react';
+import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
@@ -156,6 +156,15 @@ function DashboardContent() {
             <Trophy className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Ranking</h3>
             <p className="text-yellow-200 text-sm">Ver classificação</p>
+          </Link>
+
+          <Link
+            href="/store"
+            className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 hover:from-purple-700 hover:to-purple-900 transition cursor-pointer"
+          >
+            <ShoppingBag className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Loja</h3>
+            <p className="text-purple-200 text-sm">Resgatar recompensas</p>
           </Link>
 
           <Link
