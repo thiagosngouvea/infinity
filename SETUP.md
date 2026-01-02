@@ -152,6 +152,15 @@ O sistema estará disponível em: `http://localhost:3000`
 4. Clique em "Aprovar"
 5. O usuário receberá uma notificação!
 
+### 5.5 Gerenciar Membros
+
+1. No painel admin, clique em "Gerenciar Membros"
+2. Você pode:
+   - Promover membros a administrador
+   - Rebaixar admins a membro comum
+   - Remover membros do clã (ação permanente)
+3. Use com cuidado - estas ações têm grande impacto!
+
 ## Estrutura de Pastas
 
 ```

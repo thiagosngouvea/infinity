@@ -31,6 +31,12 @@ Sistema web completo para gerenciamento do clã Infinity no jogo Perfect World, 
 - **Top 3**: Destaques especiais para os 3 primeiros
 - **Sua Posição**: Visualize sua posição no ranking
 
+### 👥 Membros do Clã
+- **Lista de Membros**: Visualize todos os membros do clã
+- **Filtros**: Filtre por todos, apenas admins ou apenas membros
+- **Informações**: Veja classe, pontos e informações de contato
+- **Estatísticas**: Total de membros, admins e membros ativos
+
 ### 🔔 Notificações
 - **Em Tempo Real**: Notificações de eventos importantes
 - **Tipos**: Aprovação de cadastro, vitória em sorteios, eventos
@@ -38,6 +44,7 @@ Sistema web completo para gerenciamento do clã Infinity no jogo Perfect World, 
 
 ### 👨‍💼 Painel Administrativo
 - **Aprovação de Membros**: Aprovar ou rejeitar cadastros
+- **Gerenciar Membros**: Promover usuários a admin ou remover do clã
 - **Criar Eventos**: Gerenciar eventos do clã
 - **Criar Sorteios**: Gerenciar sorteios e realizar o sorteio
 - **Visualizar Todos os Dados**: Acesso completo ao sistema
@@ -181,7 +188,9 @@ npm start
 - `/attendance` - Presença diária
 - `/raffles` - Sorteios
 - `/ranking` - Ranking de membros
+- `/members` - Membros do clã
 - `/admin` - Painel administrativo
+- `/admin/members` - Gerenciamento de membros (apenas admin)
 
 ## 🎨 Classes do Perfect World
 
@@ -300,6 +309,8 @@ O sistema suporta as seguintes classes:
 ### Admin (Administrador)
 - Todos os acessos de membro
 - Aprovar/rejeitar cadastros
+- Promover membros a admin
+- Remover membros do clã
 - Criar eventos
 - Criar sorteios
 - Realizar sorteios

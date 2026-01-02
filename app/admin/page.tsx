@@ -9,11 +9,13 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Check, X, Users, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConfirm } from '@/components/ConfirmModal';
 
 function AdminContent() {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const { userData } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     loadPendingUsers();
@@ -60,9 +62,15 @@ function AdminContent() {
   };
 
   const rejectUser = async (userId: string, userName: string) => {
-    if (!confirm(`Tem certeza que deseja rejeitar o cadastro de ${userName}?`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Rejeitar Cadastro',
+      message: `Tem certeza que deseja rejeitar o cadastro de ${userName}?\n\nO usuário não terá acesso ao sistema.`,
+      confirmText: 'Rejeitar',
+      cancelText: 'Cancelar',
+      type: 'warning'
+    });
+
+    if (!confirmed) return;
 
     try {
       await updateDoc(doc(db, 'users', userId), {
@@ -105,6 +113,24 @@ function AdminContent() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Menu de Administração */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <Link
+            href="/admin/members"
+            className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 hover:from-purple-700 hover:to-purple-900 transition cursor-pointer"
+          >
+            <Shield className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Gerenciar Membros</h3>
+            <p className="text-purple-200 text-sm">Promover a admin, remover membros</p>
+          </Link>
+
+          <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6">
+            <Users className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Aprovar Cadastros</h3>
+            <p className="text-blue-200 text-sm">{pendingUsers.length} pendente(s)</p>
+          </div>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">
             <Users className="h-8 w-8" />
@@ -164,6 +190,7 @@ function AdminContent() {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

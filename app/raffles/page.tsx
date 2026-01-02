@@ -9,12 +9,14 @@ import { Raffle } from '@/types';
 import toast from 'react-hot-toast';
 import { Gift, Plus, ArrowLeft, Users, Trophy, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { useConfirm } from '@/components/ConfirmModal';
 
 function RafflesContent() {
   const { userData } = useAuth();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -97,7 +99,15 @@ function RafflesContent() {
   const drawWinner = async (raffle: Raffle) => {
     if (!userData || raffle.participants.length === 0) return;
 
-    if (!confirm(`Realizar sorteio de "${raffle.title}"?`)) return;
+    const confirmed = await confirm({
+      title: '🎁 Realizar Sorteio',
+      message: `Realizar sorteio de "${raffle.title}"?\n\n🎲 ${raffle.participants.length} participante(s)\n🏆 Prêmio: ${raffle.prize}\n\nUm vencedor será escolhido aleatoriamente e receberá uma notificação.`,
+      confirmText: 'Sortear Agora',
+      cancelText: 'Cancelar',
+      type: 'success'
+    });
+
+    if (!confirmed) return;
 
     try {
       // Sortear vencedor aleatório
@@ -338,6 +348,7 @@ function RafflesContent() {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

@@ -157,6 +157,15 @@ function DashboardContent() {
             <h3 className="text-xl font-bold text-white mb-1">Ranking</h3>
             <p className="text-yellow-200 text-sm">Ver classificação</p>
           </Link>
+
+          <Link
+            href="/members"
+            className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg p-6 hover:from-indigo-700 hover:to-indigo-900 transition cursor-pointer"
+          >
+            <Users className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Membros</h3>
+            <p className="text-indigo-200 text-sm">Ver membros do clã</p>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

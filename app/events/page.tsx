@@ -9,6 +9,7 @@ import { Event, EventVote } from '@/types';
 import toast from 'react-hot-toast';
 import { Calendar, Plus, Trash2, Check, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useConfirm } from '@/components/ConfirmModal';
 
 const eventTypes = ['TW', 'GvG', 'Boss', 'Farm', 'Outro'];
 
@@ -18,6 +19,7 @@ function EventsContent() {
   const [myVotes, setMyVotes] = useState<{ [eventId: string]: EventVote }>({});
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -127,7 +129,15 @@ function EventsContent() {
   };
 
   const deleteEvent = async (eventId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este evento?')) return;
+    const confirmed = await confirm({
+      title: 'Excluir Evento',
+      message: 'Tem certeza que deseja excluir este evento?\n\nTodos os votos relacionados serão mantidos no histórico.',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
 
     try {
       await deleteDoc(doc(db, 'events', eventId));
@@ -336,6 +346,7 @@ function EventsContent() {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </div>
   );
 }
