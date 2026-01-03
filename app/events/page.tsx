@@ -7,18 +7,19 @@ import { collection, query, where, getDocs, addDoc, orderBy, deleteDoc, doc, upd
 import { db } from '@/lib/firebase';
 import { Event, EventVote } from '@/types';
 import toast from 'react-hot-toast';
-import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins } from 'lucide-react';
+import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 
 const eventTypes = ['TW', 'GvG', 'Boss', 'Farm', 'Outro'];
 
 function EventsContent() {
-  const { userData } = useAuth();
+  const { userData, refreshUserData } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [myVotes, setMyVotes] = useState<{ [eventId: string]: EventVote }>({});
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
 
   // Form state
@@ -48,7 +49,10 @@ function EventsContent() {
       const eventsList = eventsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        date: doc.data().date.toDate()
+        date: doc.data().date.toDate(),
+        // Garantir valores padrão para eventos antigos
+        pointsForVoting: doc.data().pointsForVoting ?? 5,
+        pointsForAttendance: doc.data().pointsForAttendance ?? 20
       } as Event));
       setEvents(eventsList);
 
@@ -79,20 +83,35 @@ function EventsContent() {
     try {
       const eventDate = new Date(`${date}T${time}`);
       
-      await addDoc(collection(db, 'events'), {
-        title,
-        description,
-        date: eventDate,
-        type,
-        pointsForVoting: Number(pointsForVoting),
-        pointsForAttendance: Number(pointsForAttendance),
-        createdBy: userData.id,
-        createdAt: new Date(),
-        active: true
-      });
+      if (editingEvent) {
+        // Atualizar evento existente
+        await updateDoc(doc(db, 'events', editingEvent.id), {
+          title,
+          description,
+          date: eventDate,
+          type,
+          pointsForVoting: Number(pointsForVoting),
+          pointsForAttendance: Number(pointsForAttendance)
+        });
+        toast.success('Evento atualizado com sucesso!');
+      } else {
+        // Criar novo evento
+        await addDoc(collection(db, 'events'), {
+          title,
+          description,
+          date: eventDate,
+          type,
+          pointsForVoting: Number(pointsForVoting),
+          pointsForAttendance: Number(pointsForAttendance),
+          createdBy: userData.id,
+          createdAt: new Date(),
+          active: true
+        });
+        toast.success('Evento criado com sucesso!');
+      }
 
-      toast.success('Evento criado com sucesso!');
       setShowCreateForm(false);
+      setEditingEvent(null);
       setTitle('');
       setDescription('');
       setDate('');
@@ -102,9 +121,39 @@ function EventsContent() {
       setPointsForAttendance(20);
       loadEvents();
     } catch (error) {
-      console.error('Erro ao criar evento:', error);
-      toast.error('Erro ao criar evento');
+      console.error('Erro ao salvar evento:', error);
+      toast.error('Erro ao salvar evento');
     }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setTitle(event.title);
+    setDescription(event.description);
+    
+    // Formatar data e hora
+    const eventDate = new Date(event.date);
+    const dateStr = eventDate.toISOString().split('T')[0];
+    const timeStr = eventDate.toTimeString().slice(0, 5);
+    
+    setDate(dateStr);
+    setTime(timeStr);
+    setType(event.type);
+    setPointsForVoting(event.pointsForVoting || 5);
+    setPointsForAttendance(event.pointsForAttendance || 20);
+    setShowCreateForm(true);
+  };
+
+  const handleCancelEdit = () => {
+    setShowCreateForm(false);
+    setEditingEvent(null);
+    setTitle('');
+    setDescription('');
+    setDate('');
+    setTime('');
+    setType('TW');
+    setPointsForVoting(5);
+    setPointsForAttendance(20);
   };
 
   const vote = async (eventId: string, canParticipate: boolean, comment: string = '') => {
@@ -139,6 +188,8 @@ function EventsContent() {
           totalPointsEarned: increment(event.pointsForVoting)
         });
         toast.success(`Voto registrado! +${event.pointsForVoting} pontos`);
+        // Atualizar dados do usuário para refletir os novos pontos
+        await refreshUserData();
       } else {
         toast.success('Voto atualizado!');
       }
@@ -203,10 +254,12 @@ function EventsContent() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Formulário de Criação */}
+        {/* Formulário de Criação/Edição */}
         {showCreateForm && userData?.role === 'admin' && (
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
-            <h2 className="text-xl font-bold text-white mb-4">Criar Novo Evento</h2>
+            <h2 className="text-xl font-bold text-white mb-4">
+              {editingEvent ? 'Editar Evento' : 'Criar Novo Evento'}
+            </h2>
             <form onSubmit={createEvent} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Título</label>
@@ -312,11 +365,11 @@ function EventsContent() {
                   type="submit"
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition"
                 >
-                  Criar Evento
+                  {editingEvent ? 'Salvar Alterações' : 'Criar Evento'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={handleCancelEdit}
                   className="px-6 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition"
                 >
                   Cancelar
@@ -365,6 +418,13 @@ function EventsContent() {
                     <div className="flex gap-2">
                       {userData?.role === 'admin' && (
                         <>
+                          <button
+                            onClick={() => handleEditEvent(event)}
+                            className="text-yellow-400 hover:text-yellow-300"
+                            title="Editar Evento"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
                           <Link
                             href={`/admin/events/${event.id}`}
                             className="text-blue-400 hover:text-blue-300"

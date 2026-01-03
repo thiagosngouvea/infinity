@@ -44,7 +44,10 @@ function EventAttendanceContent() {
       const eventData = {
         id: eventDoc.id,
         ...eventDoc.data(),
-        date: eventDoc.data().date.toDate()
+        date: eventDoc.data().date.toDate(),
+        // Garantir valores padrão para eventos antigos
+        pointsForVoting: eventDoc.data().pointsForVoting ?? 5,
+        pointsForAttendance: eventDoc.data().pointsForAttendance ?? 20
       } as Event;
       setEvent(eventData);
 
