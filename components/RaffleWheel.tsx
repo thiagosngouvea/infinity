@@ -25,6 +25,7 @@ export default function RaffleWheel({
   const [winner, setWinner] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
     // Configurar tamanho da janela para confetes
@@ -45,8 +46,16 @@ export default function RaffleWheel({
   }, []);
 
   useEffect(() => {
-    if (isOpen && !spinning && participants.length > 0) {
+    if (isOpen && !spinning && !completed && participants.length > 0) {
       startSpin();
+    }
+    
+    // Reset quando o modal fechar
+    if (!isOpen) {
+      setCompleted(false);
+      setSpinning(false);
+      setWinner(null);
+      setShowConfetti(false);
     }
   }, [isOpen]);
 
@@ -89,9 +98,12 @@ export default function RaffleWheel({
             navigator.vibrate([200, 100, 200]);
           }
 
-          // Chamar callback após animação completa
+          // Chamar callback após animação completa (apenas uma vez)
           setTimeout(() => {
-            onComplete(participants[winnerIndex]);
+            if (!completed) {
+              setCompleted(true);
+              onComplete(participants[winnerIndex]);
+            }
           }, 4000); // 4 segundos para aproveitar a vitória
         }, currentSpeed);
       }

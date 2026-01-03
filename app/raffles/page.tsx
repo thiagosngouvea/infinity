@@ -140,6 +140,15 @@ function RafflesContent() {
     try {
       const winnerName = participantNames[winnerId];
 
+      // Verificar se o sorteio já não foi completado (proteção contra duplicação)
+      const currentRaffle = raffles.find(r => r.id === selectedRaffle.id);
+      if (currentRaffle?.status === 'completed') {
+        console.log('Sorteio já foi completado, ignorando duplicação');
+        setShowWheel(false);
+        setSelectedRaffle(null);
+        return;
+      }
+
       // Atualizar sorteio
       await updateDoc(doc(db, 'raffles', selectedRaffle.id), {
         winnerId,
