@@ -117,11 +117,11 @@ function AdminContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <Link
             href="/admin/members"
-            className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 hover:from-purple-700 hover:to-purple-900 transition cursor-pointer"
+            className="bg-gradient-to-br from-red-600 to-red-800 rounded-lg p-6 hover:from-red-700 hover:to-red-900 transition cursor-pointer"
           >
             <Shield className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Gerenciar Membros</h3>
-            <p className="text-purple-200 text-sm">Promover a admin, remover membros</p>
+            <p className="text-red-200 text-sm">Promover a admin, remover membros</p>
           </Link>
 
           <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6">

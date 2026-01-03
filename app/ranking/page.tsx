@@ -323,10 +323,10 @@ function RankingContent() {
                         {isAdmin && (
                           <div className="text-right">
                             <div className="flex items-center gap-1 justify-end mb-1">
-                              <ShoppingBag className="h-4 w-4 text-purple-500" />
+                              <ShoppingBag className="h-4 w-4 text-red-500" />
                               <p className="text-xs text-gray-400">Gastos</p>
                             </div>
-                            <p className="text-2xl font-bold text-purple-400">{member.pointsSpent}</p>
+                            <p className="text-2xl font-bold text-red-400">{member.pointsSpent}</p>
                           </div>
                         )}
                         
@@ -355,7 +355,7 @@ function RankingContent() {
             <p className="text-xs text-gray-500 text-center">
               <span className="text-yellow-500">Total</span>: Pontos acumulados desde sempre • 
               <span className="text-green-500"> Disponível</span>: Pontos para gastar na loja
-              {userData?.role === 'admin' && <> • <span className="text-purple-500">Gastos</span>: Total gasto na loja</>}
+              {userData?.role === 'admin' && <> • <span className="text-red-500">Gastos</span>: Total gasto na loja</>}
             </p>
           </div>
         </div>

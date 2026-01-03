@@ -199,7 +199,7 @@ function EventAttendanceContent() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 text-xl mb-4">Acesso negado</p>
-          <Link href="/events" className="text-purple-500 hover:text-purple-400">
+          <Link href="/events" className="text-red-500 hover:text-red-400">
             Voltar aos Eventos
           </Link>
         </div>
@@ -210,7 +210,7 @@ function EventAttendanceContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -220,7 +220,7 @@ function EventAttendanceContent() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-400 text-xl mb-4">Evento não encontrado</p>
-          <Link href="/events" className="text-purple-500 hover:text-purple-400">
+          <Link href="/events" className="text-red-500 hover:text-red-400">
             Voltar aos Eventos
           </Link>
         </div>

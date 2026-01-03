@@ -181,7 +181,7 @@ function AdminStoreContent() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 text-xl mb-4">Acesso negado</p>
-          <Link href="/dashboard" className="text-purple-500 hover:text-purple-400">
+          <Link href="/dashboard" className="text-red-500 hover:text-red-400">
             Voltar ao Dashboard
           </Link>
         </div>
@@ -192,7 +192,7 @@ function AdminStoreContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -209,7 +209,7 @@ function AdminStoreContent() {
             <h1 className="text-xl font-bold text-white">Gerenciar Loja</h1>
             <button
               onClick={() => handleOpenModal()}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition"
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
             >
               <Plus className="h-5 w-5" />
               Novo Item
@@ -225,7 +225,7 @@ function AdminStoreContent() {
             onClick={() => setActiveTab('items')}
             className={`px-6 py-3 rounded-lg font-semibold transition ${
               activeTab === 'items'
-                ? 'bg-purple-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
@@ -236,7 +236,7 @@ function AdminStoreContent() {
             onClick={() => setActiveTab('redemptions')}
             className={`px-6 py-3 rounded-lg font-semibold transition ${
               activeTab === 'redemptions'
-                ? 'bg-purple-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
@@ -317,7 +317,7 @@ function AdminStoreContent() {
                 <p className="text-gray-400 text-lg mb-4">Nenhum item cadastrado</p>
                 <button
                   onClick={() => handleOpenModal()}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition"
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
                 >
                   Cadastrar Primeiro Item
                 </button>
@@ -430,7 +430,7 @@ function AdminStoreContent() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500"
                 />
               </div>
 
@@ -443,7 +443,7 @@ function AdminStoreContent() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500"
                 />
               </div>
 
@@ -456,7 +456,7 @@ function AdminStoreContent() {
                   value={formData.imageUrl}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500"
                 />
               </div>
 
@@ -471,7 +471,7 @@ function AdminStoreContent() {
                     min="0"
                     value={formData.pointsCost}
                     onChange={(e) => setFormData({ ...formData, pointsCost: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
 
@@ -485,7 +485,7 @@ function AdminStoreContent() {
                     min="0"
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
               </div>
@@ -496,7 +496,7 @@ function AdminStoreContent() {
                   id="active"
                   checked={formData.active}
                   onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                  className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                  className="w-4 h-4 text-red-600 bg-gray-700 border-gray-600 rounded focus:ring-red-500"
                 />
                 <label htmlFor="active" className="text-sm font-medium text-gray-300">
                   Item ativo (visível na loja)
@@ -513,7 +513,7 @@ function AdminStoreContent() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition"
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
                 >
                   {editingItem ? 'Salvar' : 'Criar'}
                 </button>

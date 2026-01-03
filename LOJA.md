@@ -77,7 +77,7 @@ Sistema completo de loja de recompensas onde membros podem resgatar itens usando
 
 - Card da Loja adicionado ao dashboard principal
 - Design consistente com os outros cards
-- Cor roxa/purple para diferenciação visual
+- Cor roxa/red para diferenciação visual
 - Ícone de sacola de compras (ShoppingBag)
 
 ## 🎮 Como Usar
@@ -179,7 +179,7 @@ Sistema completo de loja de recompensas onde membros podem resgatar itens usando
 
 - **Tema Dark:** Consistente com o resto da aplicação
 - **Cores:**
-  - Loja: Roxo/Purple (purple-600)
+  - Loja: Roxo/red (red-600)
   - Botões de ação: Verde, Vermelho, Azul
   - Pontos: Amarelo dourado
 - **Ícones:** Lucide React

@@ -127,7 +127,7 @@ export default function RaffleWheel({
 
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl border-2 border-purple-500 max-w-2xl w-full p-8">
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl border-2 border-red-500 max-w-2xl w-full p-8">
           
           {/* Título */}
           <div className="text-center mb-8">
@@ -141,10 +141,10 @@ export default function RaffleWheel({
           {/* Roleta */}
           <div className="relative mb-8">
             {/* Container da roleta */}
-            <div className="bg-gray-800 rounded-xl border-4 border-purple-600 p-8 relative overflow-hidden">
+            <div className="bg-gray-800 rounded-xl border-4 border-red-600 p-8 relative overflow-hidden">
               {/* Indicador central */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
-                <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-purple-500" />
+                <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-red-500" />
               </div>
 
               {/* Display do nome atual */}
@@ -170,7 +170,7 @@ export default function RaffleWheel({
 
               {/* Efeito de brilho durante o giro */}
               {spinning && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/20 to-transparent animate-shimmer" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/20 to-transparent animate-shimmer" />
               )}
             </div>
 
@@ -181,7 +181,7 @@ export default function RaffleWheel({
                   key={id}
                   className={`px-3 py-1 rounded-full text-xs transition-all ${
                     index === currentIndex
-                      ? 'bg-purple-600 text-white scale-110 font-bold'
+                      ? 'bg-red-600 text-white scale-110 font-bold'
                       : 'bg-gray-700 text-gray-400'
                   }`}
                 >

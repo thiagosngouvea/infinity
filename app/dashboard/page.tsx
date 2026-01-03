@@ -164,7 +164,7 @@ function DashboardContent() {
           >
             <ShoppingBag className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Loja</h3>
-            <p className="text-purple-200 text-sm">Resgatar recompensas</p>
+            <p className="text-red-200 text-sm">Resgatar recompensas</p>
           </Link>
 
           <Link

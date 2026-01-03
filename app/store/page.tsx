@@ -126,7 +126,7 @@ function StoreContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -147,7 +147,7 @@ function StoreContent() {
             {userData?.role === 'admin' && (
               <Link
                 href="/admin/store"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition text-sm"
               >
                 <Settings className="h-4 w-4" />
                 Gerenciar
@@ -159,7 +159,7 @@ function StoreContent() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Saldo de Pontos */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg p-6 mb-8">
+        <div className="bg-gradient-to-r from-red-600 to-pink-600 rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white text-sm opacity-90 mb-1">Seus Pontos Disponíveis</p>
@@ -197,7 +197,7 @@ function StoreContent() {
                   key={item.id}
                   className={`bg-gray-800 rounded-lg border ${
                     canAfford && hasStock 
-                      ? 'border-gray-700 hover:border-purple-500' 
+                      ? 'border-gray-700 hover:border-red-500' 
                       : 'border-gray-700 opacity-75'
                   } overflow-hidden transition`}
                 >
@@ -246,7 +246,7 @@ function StoreContent() {
                       disabled={!canAfford || !hasStock}
                       className={`w-full py-3 rounded-lg font-semibold transition ${
                         canAfford && hasStock
-                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                          ? 'bg-red-600 hover:bg-red-700 text-white'
                           : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                       }`}
                     >

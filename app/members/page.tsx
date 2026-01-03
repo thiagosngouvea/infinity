@@ -53,7 +53,7 @@ function MembersContent() {
       'Mago': 'bg-blue-600',
       'Sacerdote': 'bg-yellow-600',
       'Bárbaro': 'bg-orange-600',
-      'Arcano': 'bg-purple-600',
+      'Arcano': 'bg-red-600',
       'Mistico': 'bg-pink-600',
       'Feiticeira': 'bg-indigo-600',
       'Mercenário': 'bg-gray-600',
@@ -65,7 +65,7 @@ function MembersContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -83,7 +83,7 @@ function MembersContent() {
             {userData?.role === 'admin' && (
               <Link
                 href="/admin/members"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition text-sm"
               >
                 <Shield className="h-4 w-4" />
                 Gerenciar
@@ -98,7 +98,7 @@ function MembersContent() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <div className="flex items-center gap-3">
-              <Users className="h-10 w-10 text-purple-500" />
+              <Users className="h-10 w-10 text-red-500" />
               <div>
                 <p className="text-gray-400 text-sm">Total de Membros</p>
                 <p className="text-2xl font-bold text-white">{members.length}</p>
@@ -137,7 +137,7 @@ function MembersContent() {
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg font-semibold transition ${
               filter === 'all'
-                ? 'bg-purple-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
@@ -147,7 +147,7 @@ function MembersContent() {
             onClick={() => setFilter('admin')}
             className={`px-4 py-2 rounded-lg font-semibold transition ${
               filter === 'admin'
-                ? 'bg-purple-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
@@ -157,7 +157,7 @@ function MembersContent() {
             onClick={() => setFilter('member')}
             className={`px-4 py-2 rounded-lg font-semibold transition ${
               filter === 'member'
-                ? 'bg-purple-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
@@ -170,7 +170,7 @@ function MembersContent() {
           {filteredMembers.map((member) => (
             <div 
               key={member.id}
-              className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-purple-500 transition"
+              className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-red-500 transition"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
