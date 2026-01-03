@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { Gift, Plus, ArrowLeft, Users, Trophy, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
+import RaffleWheel from '@/components/RaffleWheel';
 
 function RafflesContent() {
   const { userData } = useAuth();
@@ -22,6 +23,11 @@ function RafflesContent() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [prize, setPrize] = useState('');
+
+  // Wheel state
+  const [showWheel, setShowWheel] = useState(false);
+  const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
+  const [participantNames, setParticipantNames] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     loadRaffles();
@@ -110,18 +116,32 @@ function RafflesContent() {
     if (!confirmed) return;
 
     try {
-      // Sortear vencedor aleatório
-      const randomIndex = Math.floor(Math.random() * raffle.participants.length);
-      const winnerId = raffle.participants[randomIndex];
+      // Carregar nomes dos participantes
+      const names: { [key: string]: string } = {};
+      for (const userId of raffle.participants) {
+        const usersQuery = query(collection(db, 'users'), where('__name__', '==', userId));
+        const usersSnapshot = await getDocs(usersQuery);
+        const userDataDoc = usersSnapshot.docs[0]?.data();
+        names[userId] = userDataDoc?.nick || 'Usuário';
+      }
+      
+      setParticipantNames(names);
+      setSelectedRaffle(raffle);
+      setShowWheel(true);
+    } catch (error) {
+      console.error('Erro ao preparar sorteio:', error);
+      toast.error('Erro ao preparar sorteio');
+    }
+  };
 
-      // Buscar nome do vencedor
-      const usersQuery = query(collection(db, 'users'), where('__name__', '==', winnerId));
-      const usersSnapshot = await getDocs(usersQuery);
-      const winnerData = usersSnapshot.docs[0]?.data();
-      const winnerName = winnerData?.nick || 'Usuário';
+  const handleWheelComplete = async (winnerId: string) => {
+    if (!selectedRaffle) return;
+
+    try {
+      const winnerName = participantNames[winnerId];
 
       // Atualizar sorteio
-      await updateDoc(doc(db, 'raffles', raffle.id), {
+      await updateDoc(doc(db, 'raffles', selectedRaffle.id), {
         winnerId,
         winnerName,
         status: 'completed',
@@ -133,16 +153,22 @@ function RafflesContent() {
         userId: winnerId,
         type: 'raffle_win',
         title: 'Você Ganhou!',
-        message: `Parabéns! Você ganhou o sorteio: ${raffle.title} - ${raffle.prize}`,
+        message: `Parabéns! Você ganhou o sorteio: ${selectedRaffle.title} - ${selectedRaffle.prize}`,
         read: false,
         createdAt: new Date()
       });
 
       toast.success(`Sorteio realizado! Vencedor: ${winnerName}`);
-      loadRaffles();
+      
+      // Fechar modal e recarregar
+      setTimeout(() => {
+        setShowWheel(false);
+        setSelectedRaffle(null);
+        loadRaffles();
+      }, 1000);
     } catch (error) {
-      console.error('Erro ao realizar sorteio:', error);
-      toast.error('Erro ao realizar sorteio');
+      console.error('Erro ao salvar resultado:', error);
+      toast.error('Erro ao salvar resultado do sorteio');
     }
   };
 
@@ -348,7 +374,19 @@ function RafflesContent() {
           </div>
         )}
       </div>
+      
       <ConfirmDialog />
+      
+      {/* Modal de Roleta */}
+      {showWheel && selectedRaffle && (
+        <RaffleWheel
+          isOpen={showWheel}
+          participants={selectedRaffle.participants}
+          participantNames={participantNames}
+          onComplete={handleWheelComplete}
+          prize={selectedRaffle.prize}
+        />
+      )}
     </div>
   );
 }
