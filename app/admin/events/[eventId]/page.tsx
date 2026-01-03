@@ -103,10 +103,18 @@ function EventAttendanceContent() {
 
       // Se está marcando como presente E ainda não recebeu os pontos de comparecimento
       if (attended && !vote.attendancePointsAwarded && event.pointsForAttendance > 0) {
-        // Atualizar pontos do usuário
+        // Adicionar pontos do usuário
         await updateDoc(doc(db, 'users', userId), {
           pontos: increment(event.pointsForAttendance),
           totalPointsEarned: increment(event.pointsForAttendance)
+        });
+      }
+      // Se está desmarcando como presente E já recebeu os pontos
+      else if (!attended && vote.attendancePointsAwarded && event.pointsForAttendance > 0) {
+        // Remover pontos do usuário
+        await updateDoc(doc(db, 'users', userId), {
+          pontos: increment(-event.pointsForAttendance),
+          totalPointsEarned: increment(-event.pointsForAttendance)
         });
       }
 
@@ -121,7 +129,7 @@ function EventAttendanceContent() {
       if (attended) {
         toast.success(`Presença confirmada! +${event.pointsForAttendance} pontos para ${vote.userName}`);
       } else {
-        toast.success('Presença removida');
+        toast.success(`Presença removida! -${event.pointsForAttendance} pontos de ${vote.userName}`);
       }
       
       await loadEventData();

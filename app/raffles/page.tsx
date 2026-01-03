@@ -28,6 +28,7 @@ function RafflesContent() {
   const [showWheel, setShowWheel] = useState(false);
   const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
   const [participantNames, setParticipantNames] = useState<{ [key: string]: string }>({});
+  const [isProcessingResult, setIsProcessingResult] = useState(false);
 
   useEffect(() => {
     loadRaffles();
@@ -116,6 +117,9 @@ function RafflesContent() {
     if (!confirmed) return;
 
     try {
+      // Resetar estado de processamento
+      setIsProcessingResult(false);
+      
       // Carregar nomes dos participantes
       const names: { [key: string]: string } = {};
       for (const userId of raffle.participants) {
@@ -135,7 +139,19 @@ function RafflesContent() {
   };
 
   const handleWheelComplete = async (winnerId: string) => {
-    if (!selectedRaffle) return;
+    // Proteção contra múltiplas execuções
+    if (isProcessingResult) {
+      console.log('⚠️ Já está processando resultado, ignorando chamada duplicada');
+      return;
+    }
+    
+    if (!selectedRaffle) {
+      console.log('⚠️ Nenhum sorteio selecionado');
+      return;
+    }
+
+    console.log('🎰 Processando vencedor:', winnerId);
+    setIsProcessingResult(true);
 
     try {
       const winnerName = participantNames[winnerId];
@@ -143,12 +159,15 @@ function RafflesContent() {
       // Verificar se o sorteio já não foi completado (proteção contra duplicação)
       const currentRaffle = raffles.find(r => r.id === selectedRaffle.id);
       if (currentRaffle?.status === 'completed') {
-        console.log('Sorteio já foi completado, ignorando duplicação');
+        console.log('⚠️ Sorteio já foi completado, ignorando duplicação');
         setShowWheel(false);
         setSelectedRaffle(null);
+        setIsProcessingResult(false);
         return;
       }
 
+      console.log('💾 Salvando resultado do sorteio...');
+      
       // Atualizar sorteio
       await updateDoc(doc(db, 'raffles', selectedRaffle.id), {
         winnerId,
@@ -157,7 +176,9 @@ function RafflesContent() {
         drawDate: new Date()
       });
 
-      // Criar notificação para o vencedor
+      console.log('📨 Enviando notificação para o vencedor:', winnerId);
+      
+      // Criar notificação APENAS para o vencedor
       await addDoc(collection(db, 'notifications'), {
         userId: winnerId,
         type: 'raffle_win',
@@ -167,17 +188,20 @@ function RafflesContent() {
         createdAt: new Date()
       });
 
+      console.log('✅ Sorteio finalizado com sucesso!');
       toast.success(`Sorteio realizado! Vencedor: ${winnerName}`);
       
       // Fechar modal e recarregar
       setTimeout(() => {
         setShowWheel(false);
         setSelectedRaffle(null);
+        setIsProcessingResult(false);
         loadRaffles();
       }, 1000);
     } catch (error) {
-      console.error('Erro ao salvar resultado:', error);
+      console.error('❌ Erro ao salvar resultado:', error);
       toast.error('Erro ao salvar resultado do sorteio');
+      setIsProcessingResult(false);
     }
   };
 
