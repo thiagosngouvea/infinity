@@ -264,7 +264,7 @@ function StoreContent() {
       {selectedItem && (
         <ConfirmModal
           isOpen={showConfirmModal}
-          onClose={() => {
+          onCancel={() => {
             setShowConfirmModal(false);
             setSelectedItem(null);
           }}
@@ -272,7 +272,7 @@ function StoreContent() {
           title="Confirmar Resgate"
           message={`Deseja resgatar "${selectedItem.name}" por ${selectedItem.pointsCost} pontos?`}
           confirmText="Resgatar"
-          loading={redeeming}
+          type="warning"
         />
       )}
     </div>

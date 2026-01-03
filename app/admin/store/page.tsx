@@ -526,7 +526,7 @@ function AdminStoreContent() {
       {/* Modal de Confirmação de Exclusão */}
       <ConfirmModal
         isOpen={showDeleteModal}
-        onClose={() => {
+        onCancel={() => {
           setShowDeleteModal(false);
           setItemToDelete(null);
         }}
@@ -534,6 +534,7 @@ function AdminStoreContent() {
         title="Excluir Item"
         message={`Tem certeza que deseja excluir "${itemToDelete?.name}"? Esta ação não pode ser desfeita.`}
         confirmText="Excluir"
+        type="danger"
       />
     </div>
   );
