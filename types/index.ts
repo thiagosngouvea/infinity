@@ -33,6 +33,8 @@ export interface Event {
   description: string;
   date: Date;
   type: 'TW' | 'GvG' | 'Boss' | 'Farm' | 'Outro';
+  pointsForVoting: number; // Pontos por confirmar presença
+  pointsForAttendance: number; // Pontos por comparecer (confirmado por admin)
   createdBy: string;
   createdAt: Date;
   active: boolean;
@@ -45,6 +47,11 @@ export interface EventVote {
   userName: string;
   canParticipate: boolean;
   comment?: string;
+  attended?: boolean; // Se compareceu (confirmado por admin)
+  attendanceConfirmedBy?: string; // ID do admin que confirmou
+  attendanceConfirmedAt?: Date; // Data da confirmação
+  votingPointsAwarded?: boolean; // Se já recebeu pontos por votar
+  attendancePointsAwarded?: boolean; // Se já recebeu pontos por comparecer
   createdAt: Date;
 }
 

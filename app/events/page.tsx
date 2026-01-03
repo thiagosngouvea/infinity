@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, addDoc, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, orderBy, deleteDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Event, EventVote } from '@/types';
 import toast from 'react-hot-toast';
-import { Calendar, Plus, Trash2, Check, X, ArrowLeft } from 'lucide-react';
+import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 
@@ -27,6 +27,8 @@ function EventsContent() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [type, setType] = useState<Event['type']>('TW');
+  const [pointsForVoting, setPointsForVoting] = useState(5);
+  const [pointsForAttendance, setPointsForAttendance] = useState(20);
 
   useEffect(() => {
     loadEvents();
@@ -82,6 +84,8 @@ function EventsContent() {
         description,
         date: eventDate,
         type,
+        pointsForVoting: Number(pointsForVoting),
+        pointsForAttendance: Number(pointsForAttendance),
         createdBy: userData.id,
         createdAt: new Date(),
         active: true
@@ -94,6 +98,8 @@ function EventsContent() {
       setDate('');
       setTime('');
       setType('TW');
+      setPointsForVoting(5);
+      setPointsForAttendance(20);
       loadEvents();
     } catch (error) {
       console.error('Erro ao criar evento:', error);
@@ -105,6 +111,11 @@ function EventsContent() {
     if (!userData) return;
 
     try {
+      const event = events.find(e => e.id === eventId);
+      if (!event) return;
+
+      const isFirstVote = !myVotes[eventId];
+      
       // Verificar se já votou
       if (myVotes[eventId]) {
         await deleteDoc(doc(db, 'eventVotes', myVotes[eventId].id));
@@ -117,10 +128,21 @@ function EventsContent() {
         userName: userData.nick,
         canParticipate,
         comment,
+        votingPointsAwarded: isFirstVote, // Marca que já recebeu pontos por votar
         createdAt: new Date()
       });
 
-      toast.success('Voto registrado!');
+      // Dar pontos apenas se for o primeiro voto
+      if (isFirstVote && event.pointsForVoting > 0) {
+        await updateDoc(doc(db, 'users', userData.id), {
+          pontos: increment(event.pointsForVoting),
+          totalPointsEarned: increment(event.pointsForVoting)
+        });
+        toast.success(`Voto registrado! +${event.pointsForVoting} pontos`);
+      } else {
+        toast.success('Voto atualizado!');
+      }
+      
       loadEvents();
     } catch (error) {
       console.error('Erro ao votar:', error);
@@ -245,6 +267,46 @@ function EventsContent() {
                 </div>
               </div>
 
+              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+                <h3 className="text-blue-200 font-semibold mb-3 flex items-center gap-2">
+                  <Coins className="h-5 w-5" />
+                  Sistema de Pontos
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Pontos por Confirmar Presença
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={pointsForVoting}
+                      onChange={(e) => setPointsForVoting(Number(e.target.value))}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Pontos ganhos ao confirmar presença (primeira vez)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Pontos por Comparecer
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={pointsForAttendance}
+                      onChange={(e) => setPointsForAttendance(Number(e.target.value))}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Pontos ganhos ao comparecer (confirmado por admin)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -278,7 +340,7 @@ function EventsContent() {
               return (
                 <div key={event.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                   <div className="flex justify-between items-start mb-4">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-xl font-bold text-white">{event.title}</h3>
                         <span className="px-2 py-1 bg-red-600 rounded-full text-xs text-white">
@@ -286,18 +348,40 @@ function EventsContent() {
                         </span>
                       </div>
                       <p className="text-gray-400 mb-2">{event.description}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 mb-2">
                         {event.date.toLocaleDateString('pt-BR')} às {event.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </p>
+                      <div className="flex gap-3 text-sm">
+                        <span className="text-green-400 flex items-center gap-1">
+                          <Coins className="h-4 w-4" />
+                          {event.pointsForVoting || 0} pts por confirmar
+                        </span>
+                        <span className="text-yellow-400 flex items-center gap-1">
+                          <Coins className="h-4 w-4" />
+                          {event.pointsForAttendance || 0} pts por comparecer
+                        </span>
+                      </div>
                     </div>
-                    {userData?.role === 'admin' && (
-                      <button
-                        onClick={() => deleteEvent(event.id)}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    )}
+                    <div className="flex gap-2">
+                      {userData?.role === 'admin' && (
+                        <>
+                          <Link
+                            href={`/admin/events/${event.id}`}
+                            className="text-blue-400 hover:text-blue-300"
+                            title="Gerenciar Presença"
+                          >
+                            <Users className="h-5 w-5" />
+                          </Link>
+                          <button
+                            onClick={() => deleteEvent(event.id)}
+                            className="text-red-400 hover:text-red-300"
+                            title="Excluir Evento"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {myVote ? (
