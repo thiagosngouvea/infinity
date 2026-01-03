@@ -10,6 +10,7 @@ import { Event, EventVote } from '@/types';
 import toast from 'react-hot-toast';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Award, Users as UsersIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useConfirm } from '@/components/ConfirmModal';
 
 interface VoteWithUser extends EventVote {
   userEmail?: string;
@@ -19,6 +20,7 @@ function EventAttendanceContent() {
   const params = useParams();
   const router = useRouter();
   const { userData } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [event, setEvent] = useState<Event | null>(null);
   const [votes, setVotes] = useState<VoteWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,11 +143,13 @@ function EventAttendanceContent() {
       return;
     }
 
-    const confirmed = confirm(
-      `Confirmar presença de ${confirmedVotes.length} participante(s)?\n\n` +
-      `Cada um receberá ${event.pointsForAttendance} pontos.\n` +
-      `Total: ${confirmedVotes.length * event.pointsForAttendance} pontos distribuídos.`
-    );
+    const confirmed = await confirm({
+      title: '✅ Confirmar Presença em Massa',
+      message: `Confirmar presença de ${confirmedVotes.length} participante(s)?\n\n🎖️ Cada um receberá ${event.pointsForAttendance} pontos.\n💰 Total: ${confirmedVotes.length * event.pointsForAttendance} pontos distribuídos.\n\nEsta ação irá atualizar todos os participantes que confirmaram presença e ainda não foram marcados como presentes.`,
+      confirmText: 'Confirmar Todos',
+      cancelText: 'Cancelar',
+      type: 'success'
+    });
 
     if (!confirmed) return;
 
@@ -399,6 +403,8 @@ function EventAttendanceContent() {
           </div>
         )}
       </div>
+      
+      <ConfirmDialog />
     </div>
   );
 }

@@ -34,8 +34,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       // Anyone authenticated can create a vote
       allow create: if isAuthenticated();
-      // Users can update or delete their own votes
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      // Users can update or delete their own votes, OR admins can update any vote (to confirm attendance)
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      // Users can delete their own votes
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
     
     // Attendances collection
