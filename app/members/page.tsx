@@ -177,7 +177,7 @@ function MembersContent() {
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-lg font-bold text-white">{member.nick}</h3>
                     {member.role === 'admin' && (
-                      <Crown className="h-5 w-5 text-yellow-500" title="Administrador" />
+                      <Crown className="h-5 w-5 text-yellow-500" />
                     )}
                   </div>
                   <span className={`inline-block px-3 py-1 rounded-full text-xs text-white ${getClassColor(member.classe)}`}>

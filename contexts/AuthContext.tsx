@@ -18,7 +18,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  register: (email: string, password: string, userData: Omit<User, 'id' | 'role' | 'pontos' | 'createdAt'>) => Promise<void>;
+  register: (email: string, password: string, userData: Omit<User, 'id' | 'role' | 'pontos' | 'totalPointsEarned' | 'createdAt'>) => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
 
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (
     email: string, 
     password: string, 
-    userData: Omit<User, 'id' | 'role' | 'pontos' | 'createdAt'>
+    userData: Omit<User, 'id' | 'role' | 'pontos' | 'totalPointsEarned' | 'createdAt'>
   ) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
