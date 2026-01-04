@@ -203,16 +203,16 @@ function StoreContent() {
                 >
                   {/* Imagem do Item */}
                   {item.imageUrl ? (
-                    <div className="h-48 bg-gray-700 overflow-hidden">
+                    <div className="h-32 bg-gray-700 overflow-hidden flex items-center justify-center">
                       <img 
                         src={item.imageUrl} 
                         alt={item.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     </div>
                   ) : (
-                    <div className="h-48 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
-                      <Package className="h-20 w-20 text-gray-600" />
+                    <div className="h-32 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
+                      <Package className="h-12 w-12 text-gray-600" />
                     </div>
                   )}
 
