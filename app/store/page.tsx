@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Item, Redemption } from '@/types';
-import { ShoppingBag, ArrowLeft, Coins, Package, AlertCircle, Check, Settings } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Coins, Package, AlertCircle, Check, Settings, Search } from 'lucide-react';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -18,6 +18,7 @@ function StoreContent() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadItems();
@@ -180,6 +181,20 @@ function StoreContent() {
           </div>
         )}
 
+        {/* Campo de Busca */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar item por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500 transition"
+            />
+          </div>
+        </div>
+
         {/* Lista de Itens */}
         {items.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-12 text-center border border-gray-700">
@@ -187,8 +202,24 @@ function StoreContent() {
             <p className="text-gray-400 text-lg">Nenhum item disponível no momento</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map((item) => {
+          <>
+            {items.filter(item => 
+              item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              item.description.toLowerCase().includes(searchTerm.toLowerCase())
+            ).length === 0 ? (
+              <div className="bg-gray-800 rounded-lg p-12 text-center border border-gray-700">
+                <Search className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400 text-lg mb-2">Nenhum item encontrado</p>
+                <p className="text-gray-500 text-sm">Tente buscar com outros termos</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {items
+                  .filter(item => 
+                    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    item.description.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((item) => {
               const canAfford = (userData?.pontos || 0) >= item.pointsCost;
               const hasStock = item.stock > 0;
 
@@ -256,7 +287,9 @@ function StoreContent() {
                 </div>
               );
             })}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
