@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, increment, writeBatch } from 'firebase/firestore';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, getDoc, updateDoc, increment, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Event, EventVote } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Award, Users as UsersIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -20,6 +22,7 @@ function EventAttendanceContent() {
   const params = useParams();
   const router = useRouter();
   const { userData } = useAuth();
+  const { clan } = useClan();
   const { confirm, ConfirmDialog } = useConfirm();
   const [event, setEvent] = useState<Event | null>(null);
   const [votes, setVotes] = useState<VoteWithUser[]>([]);
@@ -36,7 +39,7 @@ function EventAttendanceContent() {
   const loadEventData = async () => {
     try {
       // Carregar evento
-      const eventDoc = await getDoc(doc(db, 'events', eventId));
+      const eventDoc = await getDoc(clanDoc(clan.slug, COLS.events, eventId));
       if (!eventDoc.exists()) {
         toast.error('Evento não encontrado');
         router.push('/events');
@@ -55,7 +58,7 @@ function EventAttendanceContent() {
 
       // Carregar votos
       const votesQuery = query(
-        collection(db, 'eventVotes'),
+        clanCol(clan.slug, COLS.eventVotes),
         where('eventId', '==', eventId)
       );
       const votesSnapshot = await getDocs(votesQuery);
@@ -65,7 +68,7 @@ function EventAttendanceContent() {
         const voteData = voteDoc.data();
         
         // Buscar email do usuário
-        const userDoc = await getDoc(doc(db, 'users', voteData.userId));
+        const userDoc = await getDoc(clanDoc(clan.slug, COLS.users, voteData.userId));
         const userEmail = userDoc.exists() ? userDoc.data().email : 'Email não encontrado';
         
         votesList.push({
@@ -104,7 +107,7 @@ function EventAttendanceContent() {
       // Se está marcando como presente E ainda não recebeu os pontos de comparecimento
       if (attended && !vote.attendancePointsAwarded && event.pointsForAttendance > 0) {
         // Adicionar pontos do usuário
-        await updateDoc(doc(db, 'users', userId), {
+        await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
           pontos: increment(event.pointsForAttendance),
           totalPointsEarned: increment(event.pointsForAttendance)
         });
@@ -112,14 +115,14 @@ function EventAttendanceContent() {
       // Se está desmarcando como presente E já recebeu os pontos
       else if (!attended && vote.attendancePointsAwarded && event.pointsForAttendance > 0) {
         // Remover pontos do usuário
-        await updateDoc(doc(db, 'users', userId), {
+        await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
           pontos: increment(-event.pointsForAttendance),
           totalPointsEarned: increment(-event.pointsForAttendance)
         });
       }
 
       // Atualizar voto
-      await updateDoc(doc(db, 'eventVotes', voteId), {
+      await updateDoc(clanDoc(clan.slug, COLS.eventVotes, voteId), {
         attended,
         attendanceConfirmedBy: userData.id,
         attendanceConfirmedAt: new Date(),
@@ -167,7 +170,7 @@ function EventAttendanceContent() {
       
       confirmedVotes.forEach(vote => {
         // Atualizar voto
-        batch.update(doc(db, 'eventVotes', vote.id), {
+        batch.update(clanDoc(clan.slug, COLS.eventVotes, vote.id), {
           attended: true,
           attendanceConfirmedBy: userData.id,
           attendanceConfirmedAt: new Date(),
@@ -176,7 +179,7 @@ function EventAttendanceContent() {
 
         // Atualizar pontos do usuário
         if (!vote.attendancePointsAwarded && event.pointsForAttendance > 0) {
-          batch.update(doc(db, 'users', vote.userId), {
+          batch.update(clanDoc(clan.slug, COLS.users, vote.userId), {
             pontos: increment(event.pointsForAttendance),
             totalPointsEarned: increment(event.pointsForAttendance)
           });

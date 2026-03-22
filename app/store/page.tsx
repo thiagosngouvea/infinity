@@ -3,15 +3,18 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, runTransaction } from 'firebase/firestore';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Item, Redemption } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { ShoppingBag, ArrowLeft, Coins, Package, AlertCircle, Check, Settings, Search } from 'lucide-react';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 
 function StoreContent() {
   const { userData, refreshUserData } = useAuth();
+  const { clan } = useClan();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -27,7 +30,7 @@ function StoreContent() {
   const loadItems = async () => {
     try {
       const itemsQuery = query(
-        collection(db, 'items'),
+        clanCol(clan.slug, COLS.items),
         where('active', '==', true)
       );
       const snapshot = await getDocs(itemsQuery);
@@ -56,7 +59,7 @@ function StoreContent() {
     try {
       await runTransaction(db, async (transaction) => {
         // Buscar dados atualizados do usuário
-        const userRef = doc(db, 'users', userData.id);
+        const userRef = clanDoc(clan.slug, COLS.users, userData.id);
         const userDoc = await transaction.get(userRef);
         
         if (!userDoc.exists()) {
@@ -71,7 +74,7 @@ function StoreContent() {
         }
 
         // Buscar dados atualizados do item
-        const itemRef = doc(db, 'items', selectedItem.id);
+        const itemRef = clanDoc(clan.slug, COLS.items, selectedItem.id);
         const itemDoc = await transaction.get(itemRef);
 
         if (!itemDoc.exists()) {
@@ -96,7 +99,7 @@ function StoreContent() {
         });
 
         // Criar registro de resgate
-        const redemptionRef = doc(collection(db, 'redemptions'));
+        const redemptionRef = clanDoc(clan.slug, COLS.redemptions, crypto.randomUUID());
         transaction.set(redemptionRef, {
           itemId: selectedItem.id,
           itemName: selectedItem.name,

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { User, Notification } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Check, X, Users, Shield, Palette } from 'lucide-react';
@@ -25,7 +25,7 @@ function AdminContent() {
 
   const loadPendingUsers = async () => {
     try {
-      const q = query(collection(db, 'users'), where('role', '==', 'pending'));
+      const q = query(clanCol(clan.slug, COLS.users), where('role', '==', 'pending'));
       const snapshot = await getDocs(q);
       const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
       setPendingUsers(users);
@@ -39,14 +39,14 @@ function AdminContent() {
 
   const approveUser = async (userId: string, userName: string) => {
     try {
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
         role: 'member',
         approvedAt: new Date(),
         approvedBy: userData?.id
       });
 
       // Criar notificação para o usuário
-      await addDoc(collection(db, 'notifications'), {
+      await addDoc(clanCol(clan.slug, COLS.notifications), {
         userId,
         type: 'approval',
         title: 'Cadastro Aprovado!',
@@ -75,7 +75,7 @@ function AdminContent() {
     if (!confirmed) return;
 
     try {
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
         role: 'rejected'
       });
 

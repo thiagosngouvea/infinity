@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, orderBy } from 'firebase/firestore';
 import { User } from '@/types';
+import { clanCol, COLS } from '@/lib/paths';
 import { Users, ArrowLeft, Shield, Crown, Phone, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
 function MembersContent() {
   const { userData } = useAuth();
+  const { clan } = useClan();
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'admin' | 'member'>('all');
@@ -22,7 +24,7 @@ function MembersContent() {
   const loadMembers = async () => {
     try {
       const membersQuery = query(
-        collection(db, 'users'),
+        clanCol(clan.slug, COLS.users),
         where('role', 'in', ['member', 'admin']),
         orderBy('pontos', 'desc')
       );

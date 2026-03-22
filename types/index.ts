@@ -51,6 +51,7 @@ export interface User {
   role: UserRole;
   pontos: number;
   totalPointsEarned: number; // Total de pontos acumulados (nunca diminui)
+  clanSlug: string;          // Clã ao qual este usuário pertence (imutável)
   createdAt: Date;
   approvedAt?: Date;
   approvedBy?: string;

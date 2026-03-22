@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy, doc, writeBatch } from 'firebase/firestore';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, Redemption } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { Trophy, ArrowLeft, Medal, Award, TrendingUp, ShoppingBag, RefreshCw, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -16,6 +18,7 @@ interface MemberWithStats extends User {
 
 function RankingContent() {
   const { userData } = useAuth();
+  const { clan } = useClan();
   const [members, setMembers] = useState<MemberWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
@@ -29,7 +32,7 @@ function RankingContent() {
     try {
       // Carregar membros - primeiro tenta buscar todos
       const allUsersQuery = query(
-        collection(db, 'users'),
+        clanCol(clan.slug, COLS.users),
         where('role', 'in', ['member', 'admin'])
       );
       const snapshot = await getDocs(allUsersQuery);
@@ -47,7 +50,7 @@ function RankingContent() {
       setNeedsMigration(usersWithoutTotal.length > 0);
 
       // Carregar todos os resgates para calcular pontos gastos
-      const redemptionsQuery = query(collection(db, 'redemptions'));
+      const redemptionsQuery = query(clanCol(clan.slug, COLS.redemptions));
       const redemptionsSnapshot = await getDocs(redemptionsQuery);
       const redemptions = redemptionsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -105,10 +108,8 @@ function RankingContent() {
     setMigrating(true);
     try {
       // Carregar todos os usuários
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      
-      // Carregar todos os resgates
-      const redemptionsSnapshot = await getDocs(collection(db, 'redemptions'));
+      const usersSnapshot = await getDocs(clanCol(clan.slug, COLS.users));
+      const redemptionsSnapshot = await getDocs(clanCol(clan.slug, COLS.redemptions));
       const redemptions = redemptionsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -141,7 +142,7 @@ function RankingContent() {
         // Atualizar se não tem o campo ou se está zero mas deveria ter valor
         if (userData.totalPointsEarned === undefined || 
             (userData.totalPointsEarned === 0 && totalPointsEarned > 0)) {
-          batch.update(doc(db, 'users', userId), {
+          batch.update(clanDoc(clan.slug, COLS.users, userId), {
             totalPointsEarned: totalPointsEarned
           });
           updateCount++;

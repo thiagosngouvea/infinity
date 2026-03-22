@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, getDocs, addDoc, updateDoc, doc, arrayUnion, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, getDocs, addDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Raffle } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { Gift, Plus, ArrowLeft, Users, Trophy, Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -14,6 +15,7 @@ import RaffleWheel from '@/components/RaffleWheel';
 
 function RafflesContent() {
   const { userData } = useAuth();
+  const { clan } = useClan();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -36,7 +38,7 @@ function RafflesContent() {
 
   const loadRaffles = async () => {
     try {
-      const rafflesQuery = query(collection(db, 'raffles'));
+      const rafflesQuery = query(clanCol(clan.slug, COLS.raffles));
       const snapshot = await getDocs(rafflesQuery);
       const list = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -65,7 +67,7 @@ function RafflesContent() {
     if (!userData) return;
 
     try {
-      await addDoc(collection(db, 'raffles'), {
+      await addDoc(clanCol(clan.slug, COLS.raffles), {
         title,
         description,
         prize,
@@ -91,7 +93,7 @@ function RafflesContent() {
     if (!userData) return;
 
     try {
-      await updateDoc(doc(db, 'raffles', raffleId), {
+      await updateDoc(clanDoc(clan.slug, COLS.raffles, raffleId), {
         participants: arrayUnion(userData.id)
       });
 
@@ -122,11 +124,10 @@ function RafflesContent() {
       
       // Carregar nomes dos participantes
       const names: { [key: string]: string } = {};
+      const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
       for (const userId of raffle.participants) {
-        const usersQuery = query(collection(db, 'users'), where('__name__', '==', userId));
-        const usersSnapshot = await getDocs(usersQuery);
-        const userDataDoc = usersSnapshot.docs[0]?.data();
-        names[userId] = userDataDoc?.nick || 'Usuário';
+        const userDoc = membersSnap.docs.find(d => d.id === userId);
+        names[userId] = userDoc?.data()?.nick || 'Usuário';
       }
       
       setParticipantNames(names);
@@ -169,7 +170,7 @@ function RafflesContent() {
       console.log('💾 Salvando resultado do sorteio...');
       
       // Atualizar sorteio
-      await updateDoc(doc(db, 'raffles', selectedRaffle.id), {
+      await updateDoc(clanDoc(clan.slug, COLS.raffles, selectedRaffle.id), {
         winnerId,
         winnerName,
         status: 'completed',
@@ -179,7 +180,7 @@ function RafflesContent() {
       console.log('📨 Enviando notificação para o vencedor:', winnerId);
       
       // Criar notificação APENAS para o vencedor
-      await addDoc(collection(db, 'notifications'), {
+      await addDoc(clanCol(clan.slug, COLS.notifications), {
         userId: winnerId,
         type: 'raffle_win',
         title: 'Você Ganhou!',

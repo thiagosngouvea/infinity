@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, addDoc, orderBy, deleteDoc, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, addDoc, orderBy, deleteDoc, updateDoc, increment } from 'firebase/firestore';
 import { Event, EventVote } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins, Edit } from 'lucide-react';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ const eventTypes = ['TW', 'GvG', 'Boss', 'Farm', 'Outro'];
 
 function EventsContent() {
   const { userData, refreshUserData } = useAuth();
+  const { clan } = useClan();
   const [events, setEvents] = useState<Event[]>([]);
   const [myVotes, setMyVotes] = useState<{ [eventId: string]: EventVote }>({});
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ function EventsContent() {
     try {
       // Carregar eventos ativos
       const eventsQuery = query(
-        collection(db, 'events'),
+        clanCol(clan.slug, COLS.events),
         where('active', '==', true),
         orderBy('date', 'asc')
       );
@@ -58,7 +60,7 @@ function EventsContent() {
 
       // Carregar meus votos
       const votesQuery = query(
-        collection(db, 'eventVotes'),
+        clanCol(clan.slug, COLS.eventVotes),
         where('userId', '==', userData.id)
       );
       const votesSnapshot = await getDocs(votesQuery);
@@ -85,7 +87,7 @@ function EventsContent() {
       
       if (editingEvent) {
         // Atualizar evento existente
-        await updateDoc(doc(db, 'events', editingEvent.id), {
+        await updateDoc(clanDoc(clan.slug, COLS.events, editingEvent.id), {
           title,
           description,
           date: eventDate,
@@ -96,7 +98,7 @@ function EventsContent() {
         toast.success('Evento atualizado com sucesso!');
       } else {
         // Criar novo evento
-        await addDoc(collection(db, 'events'), {
+        await addDoc(clanCol(clan.slug, COLS.events), {
           title,
           description,
           date: eventDate,
@@ -167,11 +169,11 @@ function EventsContent() {
       
       // Verificar se já votou
       if (myVotes[eventId]) {
-        await deleteDoc(doc(db, 'eventVotes', myVotes[eventId].id));
+        await deleteDoc(clanDoc(clan.slug, COLS.eventVotes, myVotes[eventId].id));
       }
 
       // Criar novo voto
-      await addDoc(collection(db, 'eventVotes'), {
+      await addDoc(clanCol(clan.slug, COLS.eventVotes), {
         eventId,
         userId: userData.id,
         userName: userData.nick,
@@ -183,7 +185,7 @@ function EventsContent() {
 
       // Dar pontos apenas se for o primeiro voto
       if (isFirstVote && event.pointsForVoting > 0) {
-        await updateDoc(doc(db, 'users', userData.id), {
+        await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
           pontos: increment(event.pointsForVoting),
           totalPointsEarned: increment(event.pointsForVoting)
         });
@@ -213,7 +215,7 @@ function EventsContent() {
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, 'events', eventId));
+      await deleteDoc(clanDoc(clan.slug, COLS.events, eventId));
       toast.success('Evento excluído!');
       loadEvents();
     } catch (error) {

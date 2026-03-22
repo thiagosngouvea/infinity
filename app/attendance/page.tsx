@@ -3,15 +3,17 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, addDoc, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, addDoc, orderBy, updateDoc, increment } from 'firebase/firestore';
 import { Attendance } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { CheckCircle, ArrowLeft, Calendar, Award } from 'lucide-react';
 import Link from 'next/link';
 
 function AttendanceContent() {
   const { userData, refreshUserData } = useAuth();
+  const { clan } = useClan();
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [canCheckIn, setCanCheckIn] = useState(false);
@@ -26,7 +28,7 @@ function AttendanceContent() {
     try {
       // Carregar presenças do usuário
       const attendanceQuery = query(
-        collection(db, 'attendances'),
+        clanCol(clan.slug, COLS.attendances),
         where('userId', '==', userData.id),
         orderBy('date', 'desc')
       );
@@ -65,7 +67,7 @@ function AttendanceContent() {
       const pontos = 10; // 10 pontos por presença
 
       // Adicionar presença
-      await addDoc(collection(db, 'attendances'), {
+      await addDoc(clanCol(clan.slug, COLS.attendances), {
         userId: userData.id,
         userName: userData.nick,
         date: new Date(),
@@ -75,7 +77,7 @@ function AttendanceContent() {
       });
 
       // Atualizar pontos do usuário
-      await updateDoc(doc(db, 'users', userData.id), {
+      await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
         pontos: increment(pontos),
         totalPointsEarned: increment(pontos)
       });
