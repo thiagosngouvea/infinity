@@ -9,8 +9,8 @@ import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth } from '@/lib/firebase';
-import { clanDoc, COLS } from '@/lib/paths';
+import { auth, db } from '@/lib/firebase';
+import { clanDoc, COLS, superAdminDoc } from '@/lib/paths';
 import { User } from '@/types';
 import { useClan } from '@/contexts/ClanContext';
 import toast from 'react-hot-toast';
@@ -44,11 +44,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ─── Carrega dados do usuário (scoped pelo clã) ────────────────────────────
 
   const loadUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
+    // ── 1. Membro do clã atual ────────────────────────────────────────────────
     const userRef = clanDoc(clan.slug, COLS.users, firebaseUser.uid);
     const userDoc = await getDoc(userRef);
+    if (userDoc.exists()) {
+      return { id: userDoc.id, ...userDoc.data() } as User;
+    }
 
-    if (!userDoc.exists()) return null;
-    return { id: userDoc.id, ...userDoc.data() } as User;
+    // ── 2. Super Admin global (/super_admins/{uid}) ───────────────────────────
+    // Invisível: NÃO cria documento no clã — acessa tudo mas não aparece em
+    // listas de membros, ranking, presenças etc.
+    const saRef = superAdminDoc(firebaseUser.uid);
+    const saDoc = await getDoc(saRef).catch(() => null);
+    if (saDoc && saDoc.exists()) {
+      return {
+        id: firebaseUser.uid,
+        ...saDoc.data(),
+        // Injeta o clã atual como contexto de navegação (sem gravar no Firestore)
+        clanSlug: clan.slug,
+        role: 'super_admin',
+      } as User;
+    }
+
+    // ── 3. Migração de conta legada (/users/{uid}) ────────────────────────────
+    const legacyRef = doc(db, 'users', firebaseUser.uid);
+    const legacyDoc = await getDoc(legacyRef).catch(() => null);
+    if (legacyDoc && legacyDoc.exists()) {
+      const migratedData = { ...legacyDoc.data(), clanSlug: clan.slug };
+      await setDoc(userRef, migratedData);
+      console.info(`[Auth] Conta ${firebaseUser.uid} migrada para /clans/${clan.slug}/users/`);
+      return { id: firebaseUser.uid, ...migratedData } as User;
+    }
+
+    // ── Nenhum match — conta não pertence a este clã ──────────────────────────
+    return null;
   };
 
   const refreshUserData = async () => {

@@ -64,6 +64,7 @@ function ClanSettingsContent() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'theme' | 'domain'>('info');
+  const isSuperAdmin = userData?.role === 'super_admin';
 
   // ─── Form State ─────────────────────────────────────────────────────────────
   const [name, setName] = useState('');
@@ -183,7 +184,8 @@ function ClanSettingsContent() {
   const tabs = [
     { id: 'info' as const, label: 'Informações', icon: Shield },
     { id: 'theme' as const, label: 'Tema & Cores', icon: Palette },
-    { id: 'domain' as const, label: 'Domínio', icon: Globe },
+    // Aba Domínio — exclusiva do super_admin
+    ...(isSuperAdmin ? [{ id: 'domain' as const, label: 'Domínio', icon: Globe }] : []),
   ];
 
   const currentLogo = logoPreview || logoUrl;
@@ -233,16 +235,19 @@ function ClanSettingsContent() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleInitializeClan}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition"
-              style={{ borderColor: 'var(--clan-border)', color: 'var(--clan-text-muted)' }}
-              title="Inicializa o documento do clã no Firestore (use na primeira vez)"
-            >
-              <RefreshCw className={`h-4 w-4 ${saving ? 'animate-spin' : ''}`} />
-              Inicializar
-            </button>
+            {/* Botão Inicializar — exclusivo do super_admin */}
+            {isSuperAdmin && (
+              <button
+                onClick={handleInitializeClan}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition"
+                style={{ borderColor: 'var(--clan-border)', color: 'var(--clan-text-muted)' }}
+                title="Inicializa o documento do clã no Firestore (use na primeira vez)"
+              >
+                <RefreshCw className={`h-4 w-4 ${saving ? 'animate-spin' : ''}`} />
+                Inicializar
+              </button>
+            )}
             <button
               onClick={handleSave}
               disabled={saving}

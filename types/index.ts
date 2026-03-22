@@ -27,7 +27,7 @@ export interface ClanConfig {
 
 // ─── Auth & Users ──────────────────────────────────────────────────────────────
 
-export type UserRole = 'pending' | 'member' | 'admin';
+export type UserRole = 'pending' | 'member' | 'admin' | 'super_admin';
 
 export type PlayerClass = 
   | 'Guerreiro' 

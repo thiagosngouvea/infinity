@@ -7,7 +7,7 @@ import { Toaster } from "react-hot-toast";
 // Metadata base — o título real é sobrescrito dinamicamente pelo ClanContext
 export const metadata: Metadata = {
   title: "Sistema de Gerenciamento de Clã",
-  description: "Plataforma white-label para gerenciamento de clãs",
+  description: "Plataforma para gerenciamento de clãs",
 };
 
 export default function RootLayout({
@@ -16,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className="antialiased">
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <ClanProvider>
           <AuthProvider>
             {children}

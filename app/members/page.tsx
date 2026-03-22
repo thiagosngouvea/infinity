@@ -82,7 +82,7 @@ function MembersContent() {
               Voltar
             </Link>
             <h1 className="text-xl font-bold text-white">Membros do Clã</h1>
-            {userData?.role === 'admin' && (
+            {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
               <Link
                 href="/admin/members"
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition text-sm"
@@ -194,7 +194,7 @@ function MembersContent() {
                   <span>{member.pontos} pontos</span>
                 </div>
                 
-                {(userData?.role === 'admin' || member.id === userData?.id) && (
+                {(userData?.role === 'admin' || userData?.role === 'super_admin' || member.id === userData?.id) && (
                   <>
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
                       <Phone className="h-4 w-4" />

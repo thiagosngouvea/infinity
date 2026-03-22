@@ -31,7 +31,7 @@ function EventAttendanceContent() {
   const eventId = params.eventId as string;
 
   useEffect(() => {
-    if (userData?.role === 'admin') {
+    if (userData?.role === 'admin' || userData?.role === 'super_admin') {
       loadEventData();
     }
   }, [eventId, userData]);
