@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, updateDoc, orderBy } from 'firebase/firestore';
 import { Notification } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { Bell, X } from 'lucide-react';
 
 export default function NotificationBell() {
   const { userData } = useAuth();
+  const { clan } = useClan();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
@@ -27,7 +29,7 @@ export default function NotificationBell() {
 
     try {
       const notifQuery = query(
-        collection(db, 'notifications'),
+        clanCol(clan.slug, COLS.notifications),
         where('userId', '==', userData.id),
         orderBy('createdAt', 'desc')
       );
@@ -47,7 +49,7 @@ export default function NotificationBell() {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await updateDoc(doc(db, 'notifications', notificationId), {
+      await updateDoc(clanDoc(clan.slug, COLS.notifications, notificationId), {
         read: true
       });
       loadNotifications();
@@ -60,7 +62,7 @@ export default function NotificationBell() {
     try {
       const unreadNotifs = notifications.filter(n => !n.read);
       await Promise.all(
-        unreadNotifs.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true }))
+        unreadNotifs.map(n => updateDoc(clanDoc(clan.slug, COLS.notifications, n.id), { read: true }))
       );
       loadNotifications();
     } catch (error) {

@@ -1,16 +1,21 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { 
+import {
   User as FirebaseUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import { clanDoc, COLS } from '@/lib/paths';
 import { User } from '@/types';
+import { useClan } from '@/contexts/ClanContext';
+import toast from 'react-hot-toast';
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -18,80 +23,125 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  register: (email: string, password: string, userData: Omit<User, 'id' | 'role' | 'pontos' | 'totalPointsEarned' | 'createdAt'>) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    userData: Omit<User, 'id' | 'role' | 'pontos' | 'totalPointsEarned' | 'createdAt' | 'clanSlug'>
+  ) => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { clan } = useClan();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshUserData = async () => {
-    if (user) {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        setUserData({ id: userDoc.id, ...userDoc.data() } as User);
-      }
-    }
+  // ─── Carrega dados do usuário (scoped pelo clã) ────────────────────────────
+
+  const loadUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
+    const userRef = clanDoc(clan.slug, COLS.users, firebaseUser.uid);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) return null;
+    return { id: userDoc.id, ...userDoc.data() } as User;
   };
 
+  const refreshUserData = async () => {
+    if (!user) return;
+    const data = await loadUserData(user);
+    setUserData(data);
+  };
+
+  // ─── Listener de autenticação ─────────────────────────────────────────────
+
   useEffect(() => {
+    // Só inicia o listener quando o clã estiver carregado
+    if (!clan.slug) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      
+
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          setUserData({ id: userDoc.id, ...userDoc.data() } as User);
+        const data = await loadUserData(firebaseUser);
+
+        if (!data) {
+          // Usuário está autenticado no Firebase Auth, mas não tem registro
+          // neste clã — faz logout silencioso
+          await firebaseSignOut(auth);
+          setUserData(null);
+          toast.error('Esta conta não pertence a este clã.');
+        } else {
+          setUserData(data);
         }
       } else {
         setUserData(null);
       }
-      
+
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clan.slug]);
+
+  // ─── Login ────────────────────────────────────────────────────────────────
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+
+    // Valida se o usuário pertence a este clã
+    const data = await loadUserData(credential.user);
+    if (!data) {
+      await firebaseSignOut(auth);
+      throw new Error('Esta conta não pertence a este clã.');
+    }
   };
+
+  // ─── Logout ───────────────────────────────────────────────────────────────
 
   const signOut = async () => {
     await firebaseSignOut(auth);
     setUserData(null);
   };
 
+  // ─── Registro ─────────────────────────────────────────────────────────────
+
   const register = async (
-    email: string, 
-    password: string, 
-    userData: Omit<User, 'id' | 'role' | 'pontos' | 'totalPointsEarned' | 'createdAt'>
+    email: string,
+    password: string,
+    userData: Omit<User, 'id' | 'role' | 'pontos' | 'totalPointsEarned' | 'createdAt' | 'clanSlug'>
   ) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
+
+    // Salva o usuário no path scoped do clã
+    const userRef = clanDoc(clan.slug, COLS.users, userCredential.user.uid);
+    await setDoc(userRef, {
       ...userData,
       email,
+      clanSlug: clan.slug,
       role: 'pending',
       pontos: 0,
       totalPointsEarned: 0,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
   };
 
+  // ─── Context value ────────────────────────────────────────────────────────
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      userData, 
-      loading, 
-      signIn, 
-      signOut, 
+    <AuthContext.Provider value={{
+      user,
+      userData,
+      loading,
+      signIn,
+      signOut,
       register,
-      refreshUserData 
+      refreshUserData,
     }}>
       {children}
     </AuthContext.Provider>
@@ -99,4 +149,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
-

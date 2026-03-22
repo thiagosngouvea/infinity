@@ -3,15 +3,17 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, getDocs, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { Item, Redemption } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { ShoppingBag, ArrowLeft, Plus, Edit, Trash2, Package, X, Check, Clock, Ban } from 'lucide-react';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 
 function AdminStoreContent() {
   const { userData } = useAuth();
+  const { clan } = useClan();
   const [items, setItems] = useState<Item[]>([]);
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ function AdminStoreContent() {
 
   const loadItems = async () => {
     try {
-      const itemsQuery = query(collection(db, 'items'));
+      const itemsQuery = query(clanCol(clan.slug, COLS.items));
       const snapshot = await getDocs(itemsQuery);
       const list = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -58,7 +60,7 @@ function AdminStoreContent() {
   const loadRedemptions = async () => {
     try {
       const redemptionsQuery = query(
-        collection(db, 'redemptions'),
+        clanCol(clan.slug, COLS.redemptions),
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(redemptionsQuery);
@@ -106,14 +108,14 @@ function AdminStoreContent() {
     try {
       if (editingItem) {
         // Atualizar item existente
-        await updateDoc(doc(db, 'items', editingItem.id), {
+        await updateDoc(clanDoc(clan.slug, COLS.items, editingItem.id), {
           ...formData,
           pointsCost: Number(formData.pointsCost),
           stock: Number(formData.stock)
         });
       } else {
         // Criar novo item
-        await addDoc(collection(db, 'items'), {
+        await addDoc(clanCol(clan.slug, COLS.items), {
           ...formData,
           pointsCost: Number(formData.pointsCost),
           stock: Number(formData.stock),
@@ -147,7 +149,7 @@ function AdminStoreContent() {
     if (!itemToDelete) return;
 
     try {
-      await deleteDoc(doc(db, 'items', itemToDelete.id));
+      await deleteDoc(clanDoc(clan.slug, COLS.items, itemToDelete.id));
       await loadItems();
       setShowDeleteModal(false);
       setItemToDelete(null);
@@ -168,7 +170,7 @@ function AdminStoreContent() {
         updateData.deliveredBy = userData?.id;
       }
 
-      await updateDoc(doc(db, 'redemptions', redemption.id), updateData);
+      await updateDoc(clanDoc(clan.slug, COLS.redemptions, redemption.id), updateData);
       await loadRedemptions();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);

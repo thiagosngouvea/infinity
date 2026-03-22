@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { Event, Notification } from '@/types';
+import { clanCol, COLS } from '@/lib/paths';
 import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -30,7 +30,7 @@ function DashboardContent() {
     try {
       // Carregar eventos ativos
       const eventsQuery = query(
-        collection(db, 'events'),
+        clanCol(clan.slug, COLS.events),
         where('active', '==', true),
         orderBy('date', 'asc'),
         limit(5)
@@ -45,7 +45,7 @@ function DashboardContent() {
 
       // Carregar notificações não lidas
       const notifQuery = query(
-        collection(db, 'notifications'),
+        clanCol(clan.slug, COLS.notifications),
         where('userId', '==', userData.id),
         where('read', '==', false),
         orderBy('createdAt', 'desc'),

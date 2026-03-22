@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useClan } from '@/contexts/ClanContext';
+import { query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { User } from '@/types';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { Shield, ArrowLeft, Crown, UserX, UserCheck, Trash2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +14,7 @@ import { useConfirm } from '@/components/ConfirmModal';
 
 function AdminMembersContent() {
   const { userData } = useAuth();
+  const { clan } = useClan();
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -24,7 +26,7 @@ function AdminMembersContent() {
   const loadMembers = async () => {
     try {
       const membersQuery = query(
-        collection(db, 'users'),
+        clanCol(clan.slug, COLS.users),
         where('role', 'in', ['member', 'admin'])
       );
       const snapshot = await getDocs(membersQuery);
@@ -63,7 +65,7 @@ function AdminMembersContent() {
     if (!confirmed) return;
 
     try {
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
         role: 'admin'
       });
       toast.success(`${userName} agora é administrador!`);
@@ -91,7 +93,7 @@ function AdminMembersContent() {
     if (!confirmed) return;
 
     try {
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
         role: 'member'
       });
       toast.success(`${userName} agora é membro comum`);
@@ -121,7 +123,7 @@ function AdminMembersContent() {
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      await deleteDoc(clanDoc(clan.slug, COLS.users, userId));
       toast.success(`${userName} foi removido do clã`);
       loadMembers();
     } catch (error) {

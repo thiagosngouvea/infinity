@@ -1,101 +1,88 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is admin
-    function isAdmin() {
-      return request.auth != null && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Helper function to check if user is authenticated
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Users collection
-    match /users/{userId} {
-      // Anyone authenticated can read user data
-      allow read: if isAuthenticated();
-      // Users can update their own data, or admins can update anyone
-      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-    }
-    
-    // Events collection
-    match /events/{eventId} {
-      // Anyone authenticated can read events
-      allow read: if isAuthenticated();
-      // Only admins can create, update, or delete events
-      allow write: if isAdmin();
-    }
-    
-    // Event votes collection
-    match /eventVotes/{voteId} {
-      // Anyone authenticated can read votes
-      allow read: if isAuthenticated();
-      // Anyone authenticated can create a vote
-      allow create: if isAuthenticated();
-      // Users can update or delete their own votes, OR admins can update any vote (to confirm attendance)
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
-      // Users can delete their own votes
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-    }
-    
-    // Attendances collection
-    match /attendances/{attendanceId} {
-      // Anyone authenticated can read attendances
-      allow read: if isAuthenticated();
-      // Anyone authenticated can create an attendance (daily check-in)
-      allow create: if isAuthenticated();
-      // Only admins can update or delete attendances
-      allow update, delete: if isAdmin();
-    }
-    
-    // Raffles collection
-    match /raffles/{raffleId} {
-      // Anyone authenticated can read raffles
-      allow read: if isAuthenticated();
-      // Only admins can create or delete raffles
-      allow create, delete: if isAdmin();
-      // Anyone authenticated can update (to participate), admins can do anything
-      allow update: if isAuthenticated();
-    }
-    
-    // Notifications collection
-    match /notifications/{notifId} {
-      // Users can only read their own notifications
-      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      // Users can update their own notifications (mark as read)
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      // Anyone authenticated can create notifications
-      allow create: if isAuthenticated();
-      // Admins can delete notifications
-      allow delete: if isAdmin();
-    }
-    
-    // Clans collection (White-Label config)
-    // Leitura pública — precisa carregar o tema antes do login
-    match /clans/{clanSlug} {
-      allow read: if true;
-      allow write: if isAdmin();
+
+    // Verifica se o usuário autenticado é admin NO CLÃ especificado
+    function isClanAdmin(clanSlug) {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Items collection (Store)
-    match /items/{itemId} {
-      // Anyone authenticated can read items
-      allow read: if isAuthenticated();
-      // Only admins can create, update, or delete items
-      allow write: if isAdmin();
+    // Verifica se o usuário pertence ao clã (tem documento na subcoleção)
+    function isClanMember(clanSlug) {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid));
     }
-    
-    // Redemptions collection (Store)
-    match /redemptions/{redemptionId} {
-      // Anyone authenticated can read redemptions
-      allow read: if isAuthenticated();
-      // Anyone authenticated can create a redemption (redeem an item)
+
+    // ─── Clans (config white-label) ───────────────────────────────────────────
+    // Leitura pública — necessário para carregar o tema antes do login
+    match /clans/{clanSlug} {
+      allow read: if true;
+      // Escrita apenas por admin do próprio clã
+      allow write: if isClanAdmin(clanSlug);
+    }
+
+    // ─── Dados scoped por clã ─────────────────────────────────────────────────
+    match /clans/{clanSlug}/users/{userId} {
+      // Membros do clã podem ler outros membros
+      allow read: if isClanMember(clanSlug);
+      // Apenas o próprio usuário ou admin do clã pode escrever
+      allow write: if isAuthenticated() &&
+                      (request.auth.uid == userId || isClanAdmin(clanSlug));
+      // Qualquer pessoa autenticada pode criar (registro)
       allow create: if isAuthenticated();
-      // Only admins can update or delete redemptions (mark as delivered, cancel, etc)
-      allow update, delete: if isAdmin();
+    }
+
+    match /clans/{clanSlug}/events/{eventId} {
+      allow read: if isClanMember(clanSlug);
+      allow write: if isClanAdmin(clanSlug);
+    }
+
+    match /clans/{clanSlug}/eventVotes/{voteId} {
+      allow read: if isClanMember(clanSlug);
+      allow create: if isClanMember(clanSlug);
+      allow update: if isClanMember(clanSlug) &&
+                       (request.auth.uid == resource.data.userId || isClanAdmin(clanSlug));
+      allow delete: if isClanMember(clanSlug) &&
+                       request.auth.uid == resource.data.userId;
+    }
+
+    match /clans/{clanSlug}/attendances/{attendanceId} {
+      allow read: if isClanMember(clanSlug);
+      allow create: if isClanMember(clanSlug);
+      allow update, delete: if isClanAdmin(clanSlug);
+    }
+
+    match /clans/{clanSlug}/raffles/{raffleId} {
+      allow read: if isClanMember(clanSlug);
+      allow create, delete: if isClanAdmin(clanSlug);
+      allow update: if isClanMember(clanSlug);
+    }
+
+    match /clans/{clanSlug}/notifications/{notifId} {
+      allow read: if isClanMember(clanSlug) &&
+                     request.auth.uid == resource.data.userId;
+      allow update: if isClanMember(clanSlug) &&
+                       request.auth.uid == resource.data.userId;
+      allow create: if isClanMember(clanSlug);
+      allow delete: if isClanAdmin(clanSlug);
+    }
+
+    match /clans/{clanSlug}/items/{itemId} {
+      allow read: if isClanMember(clanSlug);
+      allow write: if isClanAdmin(clanSlug);
+    }
+
+    match /clans/{clanSlug}/redemptions/{redemptionId} {
+      allow read: if isClanMember(clanSlug);
+      allow create: if isClanMember(clanSlug);
+      allow update, delete: if isClanAdmin(clanSlug);
     }
   }
 }
-
