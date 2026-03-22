@@ -1,48 +1,63 @@
 @import "tailwindcss";
 
+/* ─── CSS Variables do Tema White-Label ─────────────────────────────────────── */
+/* Valores padrão do Clã Infinity — sobrescritos pelo ClanContext via JS */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --clan-primary: #e53e3e;
+  --clan-primary-hover: #c53030;
+  --clan-secondary: #4a5568;
+  --clan-accent: #ed8936;
+  --clan-bg: #1a202c;
+  --clan-surface: #2d3748;
+  --clan-surface-hover: #3d4a5c;
+  --clan-border: #4a5568;
+  --clan-text: #f7fafc;
+  --clan-text-muted: #a0aec0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--clan-bg);
+  color: var(--clan-text);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Animações para modais */
+/* ─── Utility Classes baseadas no tema do clã ───────────────────────────────── */
+
+.clan-bg         { background-color: var(--clan-bg); }
+.clan-surface    { background-color: var(--clan-surface); }
+.clan-border     { border-color: var(--clan-border); }
+.clan-text       { color: var(--clan-text); }
+.clan-text-muted { color: var(--clan-text-muted); }
+
+.clan-primary-bg   { background-color: var(--clan-primary); }
+.clan-primary-text { color: var(--clan-primary); }
+.clan-primary-border { border-color: var(--clan-primary); }
+
+.btn-clan-primary {
+  background-color: var(--clan-primary);
+  color: var(--clan-text);
+  transition: background-color 0.2s;
+}
+.btn-clan-primary:hover {
+  background-color: var(--clan-primary-hover);
+}
+
+.spinner-clan {
+  border-color: var(--clan-surface);
+  border-top-color: var(--clan-primary);
+}
+
+/* ─── Animações para modais ─────────────────────────────────────────────────── */
+
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.2s ease-out;
-}
+.animate-fade-in  { animation: fadeIn  0.2s ease-out; }
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }

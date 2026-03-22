@@ -1,3 +1,32 @@
+// ─── White-Label: Config de Clã ───────────────────────────────────────────────
+
+export interface ClanTheme {
+  primary: string;
+  primaryHover: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  surfaceHover: string;
+  border: string;
+  text: string;
+  textMuted: string;
+}
+
+export interface ClanConfig {
+  id: string;
+  slug: string;
+  name: string;
+  domain: string;
+  logoUrl?: string;
+  game?: string;
+  theme: ClanTheme;
+  active: boolean;
+  createdAt: Date;
+}
+
+// ─── Auth & Users ──────────────────────────────────────────────────────────────
+
 export type UserRole = 'pending' | 'member' | 'admin';
 
 export type PlayerClass = 

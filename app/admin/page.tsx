@@ -6,15 +6,17 @@ import { db } from '@/lib/firebase';
 import { User, Notification } from '@/types';
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { Check, X, Users, Shield } from 'lucide-react';
+import { Check, X, Users, Shield, Palette } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useClan } from '@/contexts/ClanContext';
 import { useConfirm } from '@/components/ConfirmModal';
 
 function AdminContent() {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const { userData } = useAuth();
+  const { clan } = useClan();
   const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
@@ -99,8 +101,12 @@ function AdminContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-red-500" />
-              <span className="text-xl font-bold text-white">Clã Infinity - Admin</span>
+              {clan.logoUrl ? (
+                <img src={clan.logoUrl} alt={clan.name} className="h-8 w-8 rounded-lg object-cover" />
+              ) : (
+                <Shield className="h-8 w-8" style={{ color: 'var(--clan-primary)' }} />
+              )}
+              <span className="text-xl font-bold text-white">{clan.name} - Admin</span>
             </div>
             <Link
               href="/dashboard"
@@ -122,6 +128,15 @@ function AdminContent() {
             <Shield className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Gerenciar Membros</h3>
             <p className="text-red-200 text-sm">Promover a admin, remover membros</p>
+          </Link>
+
+          <Link
+            href="/admin/clan-settings"
+            className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 hover:from-purple-700 hover:to-purple-900 transition cursor-pointer"
+          >
+            <Palette className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Personalização do Clã</h3>
+            <p className="text-purple-200 text-sm">Logo, cores e domínio (white-label)</p>
           </Link>
 
           <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6">
