@@ -148,7 +148,7 @@ function StoreContent() {
               <ShoppingBag className="h-6 w-6" />
               Loja de Recompensas
             </h1>
-            {userData?.role === 'admin' && (
+            {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
               <Link
                 href="/admin/store"
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition text-sm"

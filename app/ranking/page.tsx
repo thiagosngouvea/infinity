@@ -89,7 +89,7 @@ function RankingContent() {
   };
 
   const migrateUserPoints = async () => {
-    if (!userData || userData.role !== 'admin') {
+    if (!userData || (userData.role !== 'admin' && userData.role !== 'super_admin')) {
       toast.error('Apenas administradores podem executar esta ação');
       return;
     }
@@ -203,7 +203,7 @@ function RankingContent() {
             </Link>
             <h1 className="text-xl font-bold text-white">Ranking</h1>
             <div className="w-20">
-              {userData?.role === 'admin' && needsMigration && (
+              {(userData?.role === 'admin' || userData?.role === 'super_admin') && needsMigration && (
                 <button
                   onClick={migrateUserPoints}
                   disabled={migrating}
@@ -221,7 +221,7 @@ function RankingContent() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Aviso de Migração Necessária */}
-        {userData?.role === 'admin' && needsMigration && (
+        {(userData?.role === 'admin' || userData?.role === 'super_admin') && needsMigration && (
           <div className="mb-6 bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
@@ -281,7 +281,7 @@ function RankingContent() {
             <div className="space-y-3">
               {members.map((member, index) => {
                 const isCurrentUser = member.id === userData?.id;
-                const isAdmin = userData?.role === 'admin';
+                const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin';
                 
                 return (
                   <div
@@ -356,7 +356,7 @@ function RankingContent() {
             <p className="text-xs text-gray-500 text-center">
               <span className="text-yellow-500">Total</span>: Pontos acumulados desde sempre • 
               <span className="text-green-500"> Disponível</span>: Pontos para gastar na loja
-              {userData?.role === 'admin' && <> • <span className="text-red-500">Gastos</span>: Total gasto na loja</>}
+              {(userData?.role === 'admin' || userData?.role === 'super_admin') && <> • <span className="text-red-500">Gastos</span>: Total gasto na loja</>}
             </p>
           </div>
         </div>

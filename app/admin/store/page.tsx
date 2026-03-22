@@ -178,7 +178,7 @@ function AdminStoreContent() {
     }
   };
 
-  if (userData?.role !== 'admin') {
+  if (userData?.role !== 'admin' && userData?.role !== 'super_admin') {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">

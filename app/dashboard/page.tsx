@@ -94,7 +94,7 @@ function DashboardContent() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-gray-300">{userData?.nick}</span>
-              {userData?.role === 'admin' && (
+              {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
                 <Link
                   href="/admin"
                   className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"

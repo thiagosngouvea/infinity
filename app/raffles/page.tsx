@@ -224,7 +224,7 @@ function RafflesContent() {
               Voltar
             </Link>
             <h1 className="text-xl font-bold text-white">Sorteios</h1>
-            {userData?.role === 'admin' && (
+            {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
               <button
                 onClick={() => setShowCreateForm(!showCreateForm)}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition"
@@ -239,7 +239,7 @@ function RafflesContent() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Formulário de Criação */}
-        {showCreateForm && userData?.role === 'admin' && (
+        {showCreateForm && (userData?.role === 'admin' || userData?.role === 'super_admin') && (
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
             <h2 className="text-xl font-bold text-white mb-4">Criar Novo Sorteio</h2>
             <form onSubmit={createRaffle} className="space-y-4">
@@ -386,7 +386,7 @@ function RafflesContent() {
                         </button>
                       )}
                       
-                      {userData?.role === 'admin' && raffle.participants.length > 0 && (
+                      {(userData?.role === 'admin' || userData?.role === 'super_admin') && raffle.participants.length > 0 && (
                         <button
                           onClick={() => drawWinner(raffle)}
                           className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
