@@ -34,7 +34,7 @@ function AdminStoreContent() {
   });
 
   useEffect(() => {
-    if (userData?.role === 'admin') {
+    if (userData?.role === 'admin' || userData?.role === 'super_admin') {
       loadItems();
       loadRedemptions();
     }

@@ -4,6 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+// Roles que têm acesso de administrador
+const ADMIN_ROLES = ['admin', 'super_admin'];
+
 export default function ProtectedRoute({ 
   children,
   requireAdmin = false 
@@ -14,17 +17,19 @@ export default function ProtectedRoute({
   const { user, userData, loading } = useAuth();
   const router = useRouter();
 
+  const isAdmin = ADMIN_ROLES.includes(userData?.role ?? '');
+
   useEffect(() => {
     if (!loading) {
       if (!user) {
         router.push('/login');
       } else if (userData?.role === 'pending') {
         router.push('/pending-approval');
-      } else if (requireAdmin && userData?.role !== 'admin') {
+      } else if (requireAdmin && !isAdmin) {
         router.push('/dashboard');
       }
     }
-  }, [user, userData, loading, requireAdmin, router]);
+  }, [user, userData, loading, requireAdmin, router, isAdmin]);
 
   if (loading) {
     return (
@@ -34,10 +39,9 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!user || (userData?.role === 'pending') || (requireAdmin && userData?.role !== 'admin')) {
+  if (!user || userData?.role === 'pending' || (requireAdmin && !isAdmin)) {
     return null;
   }
 
   return <>{children}</>;
 }
-

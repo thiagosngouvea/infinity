@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useClan } from '@/contexts/ClanContext';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { UserPlus, Shield } from 'lucide-react';
@@ -30,6 +31,7 @@ export default function Register() {
   const [whatsapp, setWhatsapp] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
+  const { clan, loading: clanLoading } = useClan();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,19 +61,33 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 px-4 py-8">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 py-8"
+      style={{ background: 'linear-gradient(135deg, var(--clan-bg) 0%, #1a0a0a 50%, var(--clan-bg) 100%)' }}
+    >
       <div className="max-w-2xl w-full">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Shield className="h-16 w-16 text-red-500" />
+            {clanLoading ? (
+              <div className="w-20 h-20 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--clan-surface)' }} />
+            ) : clan.logoUrl ? (
+              <img src={clan.logoUrl} alt={clan.name} className="w-20 h-20 rounded-2xl object-cover shadow-2xl" />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl" style={{ backgroundColor: 'var(--clan-primary)' }}>
+                <Shield className="h-10 w-10 text-white" />
+              </div>
+            )}
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Clã Infinity</h1>
-          <p className="text-gray-400">Perfect World</p>
+          <h1 className="text-3xl font-bold text-white mb-1">{clan.name}</h1>
+          {clan.game && <p className="text-sm" style={{ color: 'var(--clan-text-muted)' }}>{clan.game}</p>}
         </div>
 
-        <div className="bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700">
+        <div
+          className="rounded-2xl shadow-2xl p-8 border"
+          style={{ backgroundColor: 'var(--clan-surface)', borderColor: 'var(--clan-border)' }}
+        >
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-            <UserPlus className="h-6 w-6" />
+            <UserPlus className="h-6 w-6" style={{ color: 'var(--clan-primary)' }} />
             Cadastro de Membro
           </h2>
 
@@ -172,18 +188,19 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              className="w-full text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              style={{ backgroundColor: 'var(--clan-primary)' }}
+              onMouseEnter={e => !loading && (e.currentTarget.style.backgroundColor = 'var(--clan-primary-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--clan-primary)')}
             >
               {loading ? 'Cadastrando...' : 'Cadastrar'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-400">
+            <p style={{ color: 'var(--clan-text-muted)' }}>
               Já tem uma conta?{' '}
-              <Link href="/login" className="text-red-400 hover:text-red-300 font-semibold">
-                Faça login
-              </Link>
+              <Link href="/login" className="font-semibold" style={{ color: 'var(--clan-primary)' }}>Faça login</Link>
             </p>
           </div>
 

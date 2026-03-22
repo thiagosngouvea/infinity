@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { clanDoc, COLS } from '@/lib/paths';
 import { User } from '@/types';
 import { useClan } from '@/contexts/ClanContext';
@@ -47,8 +47,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const userRef = clanDoc(clan.slug, COLS.users, firebaseUser.uid);
     const userDoc = await getDoc(userRef);
 
-    if (!userDoc.exists()) return null;
-    return { id: userDoc.id, ...userDoc.data() } as User;
+    // ✅ Encontrado no path do clã — retorna normalmente
+    if (userDoc.exists()) {
+      return { id: userDoc.id, ...userDoc.data() } as User;
+    }
+
+    // 🔄 Não encontrado — tenta migrar do path raiz antigo (/users/{uid})
+    const legacyRef = doc(db, 'users', firebaseUser.uid);
+    const legacyDoc = await getDoc(legacyRef).catch(() => null);
+
+    if (legacyDoc && legacyDoc.exists()) {
+      const legacyData = legacyDoc.data();
+
+      // Copia os dados antigos para o novo path, adicionando clanSlug
+      const migratedData = {
+        ...legacyData,
+        clanSlug: clan.slug,
+      };
+
+      await setDoc(userRef, migratedData);
+      console.info(`[Auth] Conta ${firebaseUser.uid} migrada para /clans/${clan.slug}/users/`);
+
+      return { id: firebaseUser.uid, ...migratedData } as User;
+    }
+
+    // ❌ Não existe em nenhum lugar — conta não pertence a este clã
+    return null;
   };
 
   const refreshUserData = async () => {

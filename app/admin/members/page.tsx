@@ -8,7 +8,7 @@ import { query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore'
 import { User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Crown, UserX, UserCheck, Trash2, AlertTriangle } from 'lucide-react';
+import { Shield, ArrowLeft, Crown, UserX, UserCheck, Trash2, AlertTriangle, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 
@@ -27,7 +27,7 @@ function AdminMembersContent() {
     try {
       const membersQuery = query(
         clanCol(clan.slug, COLS.users),
-        where('role', 'in', ['member', 'admin'])
+        where('role', 'in', ['member', 'admin', 'super_admin'])
       );
       const snapshot = await getDocs(membersQuery);
       const list = snapshot.docs.map(doc => ({
@@ -37,11 +37,10 @@ function AdminMembersContent() {
         approvedAt: doc.data().approvedAt?.toDate()
       } as User));
       
-      // Ordenar: admins primeiro
       list.sort((a, b) => {
-        if (a.role === 'admin' && b.role !== 'admin') return -1;
-        if (a.role !== 'admin' && b.role === 'admin') return 1;
-        return b.pontos - a.pontos;
+        const order = { super_admin: 0, admin: 1, member: 2, pending: 3 } as Record<string, number>;
+        const diff = (order[a.role] ?? 3) - (order[b.role] ?? 3);
+        return diff !== 0 ? diff : b.pontos - a.pontos;
       });
       
       setMembers(list);
@@ -61,14 +60,29 @@ function AdminMembersContent() {
       cancelText: 'Cancelar',
       type: 'warning'
     });
-
     if (!confirmed) return;
-
     try {
-      await updateDoc(clanDoc(clan.slug, COLS.users, userId), {
-        role: 'admin'
-      });
+      await updateDoc(clanDoc(clan.slug, COLS.users, userId), { role: 'admin' });
       toast.success(`${userName} agora é administrador!`);
+      loadMembers();
+    } catch (error) {
+      console.error('Erro ao promover usuário:', error);
+      toast.error('Erro ao promover usuário');
+    }
+  };
+
+  const promoteToSuperAdmin = async (userId: string, userName: string) => {
+    const confirmed = await confirm({
+      title: '⭐ Promover a Super Admin',
+      message: `Promover ${userName} a Super Admin?\n\nEle terá acesso EXCLUSIVO a:\n• Configurações de domínio\n• Inicializar o clã\n• Todas as funções de admin`,
+      confirmText: 'Promover',
+      cancelText: 'Cancelar',
+      type: 'warning'
+    });
+    if (!confirmed) return;
+    try {
+      await updateDoc(clanDoc(clan.slug, COLS.users, userId), { role: 'super_admin' });
+      toast.success(`${userName} agora é Super Admin!`);
       loadMembers();
     } catch (error) {
       console.error('Erro ao promover usuário:', error);
@@ -190,8 +204,10 @@ function AdminMembersContent() {
             <div 
               key={member.id}
               className={`bg-gray-800 rounded-lg p-6 border ${
-                member.role === 'admin' 
-                  ? 'border-yellow-600/50 bg-yellow-900/10' 
+                member.role === 'super_admin'
+                  ? 'border-purple-500/50 bg-purple-900/10'
+                  : member.role === 'admin'
+                  ? 'border-yellow-600/50 bg-yellow-900/10'
                   : 'border-gray-700'
               }`}
             >
@@ -199,6 +215,9 @@ function AdminMembersContent() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-bold text-white">{member.nick}</h3>
+                    {member.role === 'super_admin' && (
+                      <Star className="h-5 w-5 text-purple-400" />
+                    )}
                     {member.role === 'admin' && (
                       <Crown className="h-5 w-5 text-yellow-500" />
                     )}
@@ -227,7 +246,9 @@ function AdminMembersContent() {
                     </div>
                     <div>
                       <span className="font-semibold">Status:</span>{' '}
-                      {member.role === 'admin' ? 'Administrador' : 'Membro'}
+                      {member.role === 'super_admin' ? 'Super Admin'
+                        : member.role === 'admin' ? 'Administrador'
+                        : 'Membro'}
                     </div>
                     {member.approvedAt && (
                       <div>
@@ -239,6 +260,17 @@ function AdminMembersContent() {
                 </div>
 
                 <div className="flex flex-col gap-2 lg:w-48">
+                  {/* Super Admin só pode ser promovido pelo super_admin logado */}
+                  {userData?.role === 'super_admin' && member.role === 'admin' && member.id !== userData?.id && (
+                    <button
+                      onClick={() => promoteToSuperAdmin(member.id, member.nick)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition"
+                    >
+                      <Star className="h-4 w-4" />
+                      Tornar Super Admin
+                    </button>
+                  )}
+
                   {member.role === 'member' ? (
                     <button
                       onClick={() => promoteToAdmin(member.id, member.nick)}
@@ -247,7 +279,7 @@ function AdminMembersContent() {
                       <Crown className="h-4 w-4" />
                       Promover a Admin
                     </button>
-                  ) : (
+                  ) : member.role === 'admin' ? (
                     <button
                       onClick={() => demoteToMember(member.id, member.nick)}
                       disabled={member.id === userData?.id}
@@ -256,12 +288,13 @@ function AdminMembersContent() {
                       <UserCheck className="h-4 w-4" />
                       Tornar Membro
                     </button>
-                  )}
+                  ) : null /* super_admin não tem botão de rebaixar aqui */}
 
                   <button
                     onClick={() => removeMember(member.id, member.nick)}
-                    disabled={member.id === userData?.id}
+                    disabled={member.id === userData?.id || member.role === 'super_admin'}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={member.role === 'super_admin' ? 'Não é possível remover um Super Admin' : ''}
                   >
                     <Trash2 className="h-4 w-4" />
                     Remover do Clã

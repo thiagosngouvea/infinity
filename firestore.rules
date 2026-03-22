@@ -8,10 +8,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Verifica se o usuário autenticado é admin NO CLÃ especificado
+    // Verifica se o usuário autenticado é admin ou super_admin NO CLÃ especificado
     function isClanAdmin(clanSlug) {
-      return isAuthenticated() &&
-             get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role == 'admin';
+      let role = get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role;
+      return isAuthenticated() && (role == 'admin' || role == 'super_admin');
     }
 
     // Verifica se o usuário pertence ao clã (tem documento na subcoleção)
@@ -30,13 +30,15 @@ service cloud.firestore {
 
     // ─── Dados scoped por clã ─────────────────────────────────────────────────
     match /clans/{clanSlug}/users/{userId} {
-      // Membros do clã podem ler outros membros
-      allow read: if isClanMember(clanSlug);
-      // Apenas o próprio usuário ou admin do clã pode escrever
-      allow write: if isAuthenticated() &&
-                      (request.auth.uid == userId || isClanAdmin(clanSlug));
-      // Qualquer pessoa autenticada pode criar (registro)
-      allow create: if isAuthenticated();
+      // Usuário pode SEMPRE ler o próprio doc — necessário para o fluxo de login
+      // (não pode depender de isClanMember, pois é circular)
+      allow read: if isAuthenticated() &&
+                     (request.auth.uid == userId || isClanMember(clanSlug));
+      // Qualquer autenticado pode CRIAR o próprio doc (fluxo de registro)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Atualizar/deletar: próprio usuário ou admin do clã
+      allow update, delete: if isAuthenticated() &&
+                               (request.auth.uid == userId || isClanAdmin(clanSlug));
     }
 
     match /clans/{clanSlug}/events/{eventId} {
@@ -83,6 +85,13 @@ service cloud.firestore {
       allow read: if isClanMember(clanSlug);
       allow create: if isClanMember(clanSlug);
       allow update, delete: if isClanAdmin(clanSlug);
+    }
+    // ─── Coleção legada /users (raiz) — somente para migração ────────────────
+    // Permite que usuários autenticados leiam o próprio doc antigo.
+    // Pode ser removida após todos os usuários serem migrados.
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false; // Nenhuma escrita permitida na coleção antiga
     }
   }
 }
