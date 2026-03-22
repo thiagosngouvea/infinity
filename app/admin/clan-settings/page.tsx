@@ -5,7 +5,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { ClanConfig, ClanTheme } from '@/types';
-import { DEFAULT_CLAN, DEFAULT_THEME, applyClanTheme } from '@/lib/clan';
+import { DEFAULT_THEME, applyClanTheme } from '@/lib/clan';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useClan } from '@/contexts/ClanContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -162,14 +162,29 @@ function ClanSettingsContent() {
 
   // ─── Inicializar clã no Firestore (primeira vez) ──────────────────────────────
   const handleInitializeClan = async () => {
+    if (!name.trim()) {
+      toast.error('Preencha o nome do clã antes de inicializar');
+      return;
+    }
+    if (!domain.trim()) {
+      toast.error('Preencha o domínio antes de inicializar');
+      return;
+    }
+
     setSaving(true);
     try {
-      // Extrai o id e createdAt do DEFAULT_CLAN para não enviar ao Firestore
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, ...clanData } = DEFAULT_CLAN;
-      await setDoc(doc(db, 'clans', 'infinity'), {
-        ...clanData,
+      // Usa os dados do formulário atual + clan.slug como ID do documento
+      await setDoc(doc(db, 'clans', clan.slug), {
+        slug: clan.slug,
+        name: name.trim(),
+        game: game.trim(),
+        domain: domain.trim().toLowerCase(),
+        logoUrl,
+        theme,
+        active: true,
         createdAt: new Date(),
+        updatedAt: new Date(),
+        updatedBy: userData?.id || '',
       }, { merge: true });
       await refreshClan();
       toast.success('Clã inicializado no Firestore!');
