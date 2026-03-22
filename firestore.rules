@@ -8,90 +8,108 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Verifica se o usuário autenticado é admin ou super_admin NO CLÃ especificado
+    // Super Admin global — tem acesso a TODOS os clãs, mas é invisível neles
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/super_admins/$(request.auth.uid));
+    }
+
+    // Admin ou Super Admin de um clã específico
     function isClanAdmin(clanSlug) {
       let role = get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role;
       return isAuthenticated() && (role == 'admin' || role == 'super_admin');
     }
 
-    // Verifica se o usuário pertence ao clã (tem documento na subcoleção)
+    // Membro de um clã (tem documento na subcoleção)
     function isClanMember(clanSlug) {
       return isAuthenticated() &&
              exists(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid));
+    }
+
+    // ─── Super Admins (coleção global) ───────────────────────────────────────
+    // Somente leitura pelo próprio super_admin. Escrita só via Console/Admin SDK.
+    match /super_admins/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false;
     }
 
     // ─── Clans (config white-label) ───────────────────────────────────────────
     // Leitura pública — necessário para carregar o tema antes do login
     match /clans/{clanSlug} {
       allow read: if true;
-      // Escrita apenas por admin do próprio clã
-      allow write: if isClanAdmin(clanSlug);
+      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     // ─── Dados scoped por clã ─────────────────────────────────────────────────
+
     match /clans/{clanSlug}/users/{userId} {
-      // Usuário pode SEMPRE ler o próprio doc — necessário para o fluxo de login
-      // (não pode depender de isClanMember, pois é circular)
-      allow read: if isAuthenticated() &&
-                     (request.auth.uid == userId || isClanMember(clanSlug));
-      // Qualquer autenticado pode CRIAR o próprio doc (fluxo de registro)
+      // Super admin pode ler qualquer usuário de qualquer clã
+      // Usuário pode sempre ler o próprio doc (necessário para login)
+      // Membros do clã podem ler outros membros
+      allow read: if isSuperAdmin() ||
+                     (isAuthenticated() && request.auth.uid == userId) ||
+                     isClanMember(clanSlug);
+      // Qualquer autenticado pode CRIAR o próprio doc (registro)
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      // Atualizar/deletar: próprio usuário ou admin do clã
-      allow update, delete: if isAuthenticated() &&
-                               (request.auth.uid == userId || isClanAdmin(clanSlug));
+      // Super admin ou admin do clã pode atualizar, o próprio usuário também
+      allow update, delete: if isSuperAdmin() ||
+                               (isAuthenticated() &&
+                                (request.auth.uid == userId || isClanAdmin(clanSlug)));
     }
 
     match /clans/{clanSlug}/events/{eventId} {
-      allow read: if isClanMember(clanSlug);
-      allow write: if isClanAdmin(clanSlug);
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/eventVotes/{voteId} {
-      allow read: if isClanMember(clanSlug);
-      allow create: if isClanMember(clanSlug);
-      allow update: if isClanMember(clanSlug) &&
-                       (request.auth.uid == resource.data.userId || isClanAdmin(clanSlug));
-      allow delete: if isClanMember(clanSlug) &&
-                       request.auth.uid == resource.data.userId;
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow update: if isSuperAdmin() ||
+                       (isClanMember(clanSlug) &&
+                        (request.auth.uid == resource.data.userId || isClanAdmin(clanSlug)));
+      allow delete: if isSuperAdmin() ||
+                       (isClanMember(clanSlug) && request.auth.uid == resource.data.userId);
     }
 
     match /clans/{clanSlug}/attendances/{attendanceId} {
-      allow read: if isClanMember(clanSlug);
-      allow create: if isClanMember(clanSlug);
-      allow update, delete: if isClanAdmin(clanSlug);
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/raffles/{raffleId} {
-      allow read: if isClanMember(clanSlug);
-      allow create, delete: if isClanAdmin(clanSlug);
-      allow update: if isClanMember(clanSlug);
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow update: if isSuperAdmin() || isClanMember(clanSlug);
     }
 
     match /clans/{clanSlug}/notifications/{notifId} {
-      allow read: if isClanMember(clanSlug) &&
-                     request.auth.uid == resource.data.userId;
-      allow update: if isClanMember(clanSlug) &&
-                       request.auth.uid == resource.data.userId;
-      allow create: if isClanMember(clanSlug);
-      allow delete: if isClanAdmin(clanSlug);
+      allow read: if isSuperAdmin() ||
+                     (isClanMember(clanSlug) && request.auth.uid == resource.data.userId);
+      allow update: if isSuperAdmin() ||
+                       (isClanMember(clanSlug) && request.auth.uid == resource.data.userId);
+      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/items/{itemId} {
-      allow read: if isClanMember(clanSlug);
-      allow write: if isClanAdmin(clanSlug);
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/redemptions/{redemptionId} {
-      allow read: if isClanMember(clanSlug);
-      allow create: if isClanMember(clanSlug);
-      allow update, delete: if isClanAdmin(clanSlug);
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
+
     // ─── Coleção legada /users (raiz) — somente para migração ────────────────
     // Permite que usuários autenticados leiam o próprio doc antigo.
     // Pode ser removida após todos os usuários serem migrados.
     match /users/{userId} {
       allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow write: if false; // Nenhuma escrita permitida na coleção antiga
+      allow write: if false;
     }
   }
 }

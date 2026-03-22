@@ -13,10 +13,11 @@
  *   /clans/{clanSlug}/items/{itemId}
  *   /clans/{clanSlug}/redemptions/{redemptionId}
  *
+ * Coleção global (fora de clãs):
+ *   /super_admins/{userId}   ← Administradores do sistema — invisíveis em todos os clãs
+ *
  * Uso:
- *   import { clanCol, clanDoc } from '@/lib/paths';
- *   const usersRef = clanCol(clanSlug, 'users');
- *   const userRef  = clanDoc(clanSlug, 'users', userId);
+ *   import { clanCol, clanDoc, superAdminDoc } from '@/lib/paths';
  */
 
 import { collection, doc } from 'firebase/firestore';
@@ -29,6 +30,13 @@ export const clanCol = (clanSlug: string, col: string) =>
 /** Referência para um documento dentro do clã */
 export const clanDoc = (clanSlug: string, col: string, id: string) =>
   doc(db, 'clans', clanSlug, col, id);
+
+/**
+ * Referência para um super_admin global.
+ * Esses usuários NÃO têm documento em nenhum /clans/{slug}/users — são invisíveis.
+ */
+export const superAdminDoc = (uid: string) =>
+  doc(db, 'super_admins', uid);
 
 /** Nomes das coleções scoped */
 export const COLS = {
