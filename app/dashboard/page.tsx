@@ -10,9 +10,11 @@ import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, Shopp
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
+import { useClan } from '@/contexts/ClanContext';
 
 function DashboardContent() {
   const { userData, signOut } = useAuth();
+  const { clan } = useClan();
   const router = useRouter();
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -83,8 +85,12 @@ function DashboardContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-red-500" />
-              <span className="text-xl font-bold text-white">Clã Infinity</span>
+              {clan.logoUrl ? (
+                <img src={clan.logoUrl} alt={clan.name} className="h-8 w-8 rounded-lg object-cover" />
+              ) : (
+                <Shield className="h-8 w-8" style={{ color: 'var(--clan-primary)' }} />
+              )}
+              <span className="text-xl font-bold text-white">{clan.name}</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-gray-300">{userData?.nick}</span>

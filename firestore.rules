@@ -72,6 +72,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
+    // Clans collection (White-Label config)
+    // Leitura pública — precisa carregar o tema antes do login
+    match /clans/{clanSlug} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Items collection (Store)
     match /items/{itemId} {
       // Anyone authenticated can read items
