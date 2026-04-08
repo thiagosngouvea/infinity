@@ -22,6 +22,7 @@ export interface ClanConfig {
   game?: string;
   theme: ClanTheme;
   active: boolean;
+  attendanceEnabled?: boolean; // Sistema de presença diária ativo ou não
   createdAt: Date;
 }
 

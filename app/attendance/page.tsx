@@ -18,15 +18,22 @@ function AttendanceContent() {
   const [loading, setLoading] = useState(true);
   const [canCheckIn, setCanCheckIn] = useState(false);
 
+  // Verifica se o sistema de presença está ativo (default true caso o campo não exista)
+  const attendanceEnabled = clan.attendanceEnabled !== false;
+
   useEffect(() => {
-    loadAttendances();
-  }, [userData]);
+    if (attendanceEnabled) {
+      loadAttendances();
+    } else {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, attendanceEnabled]);
 
   const loadAttendances = async () => {
     if (!userData) return;
 
     try {
-      // Carregar presenças do usuário
       const attendanceQuery = query(
         clanCol(clan.slug, COLS.attendances),
         where('userId', '==', userData.id),
@@ -41,16 +48,13 @@ function AttendanceContent() {
       } as Attendance));
       setAttendances(list);
 
-      // Verificar se pode fazer check-in hoje
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
       const hasCheckedInToday = list.some(att => {
         const attDate = new Date(att.date);
         attDate.setHours(0, 0, 0, 0);
         return attDate.getTime() === today.getTime();
       });
-
       setCanCheckIn(!hasCheckedInToday);
     } catch (error) {
       console.error('Erro ao carregar presenças:', error);
@@ -62,11 +66,8 @@ function AttendanceContent() {
 
   const checkIn = async () => {
     if (!userData) return;
-
     try {
-      const pontos = 10; // 10 pontos por presença
-
-      // Adicionar presença
+      const pontos = 10;
       await addDoc(clanCol(clan.slug, COLS.attendances), {
         userId: userData.id,
         userName: userData.nick,
@@ -75,13 +76,10 @@ function AttendanceContent() {
         createdBy: userData.id,
         createdAt: new Date()
       });
-
-      // Atualizar pontos do usuário
       await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
         pontos: increment(pontos),
         totalPointsEarned: increment(pontos)
       });
-
       toast.success(`Presença registrada! +${pontos} pontos`);
       await refreshUserData();
       loadAttendances();
@@ -99,6 +97,47 @@ function AttendanceContent() {
     );
   }
 
+  // ─── Sistema desativado ────────────────────────────────────────────────────
+  if (!attendanceEnabled) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <nav className="bg-gray-800 border-b border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/dashboard" className="flex items-center gap-2 text-gray-300 hover:text-white">
+                <ArrowLeft className="h-5 w-5" />
+                Voltar
+              </Link>
+              <h1 className="text-xl font-bold text-white">Presença Diária</h1>
+              <div className="w-20"></div>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex flex-col items-center justify-center text-center">
+          <div className="bg-gray-800 rounded-2xl p-12 border border-gray-700 max-w-md w-full">
+            <div className="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center mx-auto mb-6">
+              <span className="text-4xl">🔒</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-3">Funcionalidade Desativada</h2>
+            <p className="text-gray-400 mb-8 leading-relaxed">
+              O sistema de presença diária está desativado no momento.
+              Entre em contato com um administrador do clã para mais informações.
+            </p>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar ao Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Sistema ativo ─────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-900">
       <nav className="bg-gray-800 border-b border-gray-700">
@@ -158,8 +197,8 @@ function AttendanceContent() {
               {attendances.filter(att => {
                 const attDate = new Date(att.date);
                 const now = new Date();
-                return attDate.getMonth() === now.getMonth() && 
-                       attDate.getFullYear() === now.getFullYear();
+                return attDate.getMonth() === now.getMonth() &&
+                  attDate.getFullYear() === now.getFullYear();
               }).length}
             </p>
           </div>
@@ -177,7 +216,7 @@ function AttendanceContent() {
           ) : (
             <div className="space-y-2">
               {attendances.map((attendance) => (
-                <div 
+                <div
                   key={attendance.id}
                   className="bg-gray-700 rounded-lg p-4 flex justify-between items-center"
                 >
@@ -214,4 +253,3 @@ export default function AttendancePage() {
     </ProtectedRoute>
   );
 }
-

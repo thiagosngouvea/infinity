@@ -20,6 +20,10 @@ function DashboardContent() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Presença só aparece se attendanceEnabled !== false (default true)
+  const attendanceEnabled = clan.attendanceEnabled !== false;
+
+
   useEffect(() => {
     loadData();
   }, [userData]);
@@ -137,14 +141,16 @@ function DashboardContent() {
             <p className="text-blue-200 text-sm">Votar em eventos</p>
           </Link>
 
-          <Link
-            href="/attendance"
-            className="bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-6 hover:from-green-700 hover:to-green-900 transition cursor-pointer"
-          >
-            <CheckCircle className="h-10 w-10 text-white mb-3" />
-            <h3 className="text-xl font-bold text-white mb-1">Presença</h3>
-            <p className="text-green-200 text-sm">Marcar presença</p>
-          </Link>
+          {attendanceEnabled && (
+            <Link
+              href="/attendance"
+              className="bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-6 hover:from-green-700 hover:to-green-900 transition cursor-pointer"
+            >
+              <CheckCircle className="h-10 w-10 text-white mb-3" />
+              <h3 className="text-xl font-bold text-white mb-1">Presença</h3>
+              <p className="text-green-200 text-sm">Marcar presença</p>
+            </Link>
+          )}
 
           <Link
             href="/raffles"
