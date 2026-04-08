@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import {
   Shield, Upload, Save, Palette, Globe, ImageIcon,
-  RefreshCw, ArrowLeft, CheckCircle, Eye,
+  RefreshCw, ArrowLeft, CheckCircle, Eye, CalendarCheck, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -63,7 +63,8 @@ function ClanSettingsContent() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'theme' | 'domain'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'theme' | 'domain' | 'attendance'>('info');
+  const [attendanceEnabled, setAttendanceEnabled] = useState(true);
   const isSuperAdmin = userData?.role === 'super_admin';
 
   // ─── Form State ─────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ function ClanSettingsContent() {
       setDomain(clan.domain);
       setLogoUrl(clan.logoUrl || '');
       setTheme(clan.theme ?? DEFAULT_THEME);
+      setAttendanceEnabled(clan.attendanceEnabled !== false); // default true
     }
   }, [clan]);
 
@@ -139,6 +141,7 @@ function ClanSettingsContent() {
         logoUrl,
         theme,
         active: true,
+        attendanceEnabled,
         updatedAt: new Date(),
         updatedBy: userData?.id || '',
       };
@@ -199,6 +202,7 @@ function ClanSettingsContent() {
   const tabs = [
     { id: 'info' as const, label: 'Informações', icon: Shield },
     { id: 'theme' as const, label: 'Tema & Cores', icon: Palette },
+    { id: 'attendance' as const, label: 'Presença', icon: CalendarCheck },
     // Aba Domínio — exclusiva do super_admin
     ...(isSuperAdmin ? [{ id: 'domain' as const, label: 'Domínio', icon: Globe }] : []),
   ];
@@ -556,6 +560,114 @@ function ClanSettingsContent() {
                       A Vercel provisiona HTTPS automaticamente para todos os domínios adicionados. Nenhuma configuração extra necessária.
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Tab: Presença ─────────────────────────────────────────── */}
+            {activeTab === 'attendance' && (
+              <div className="rounded-xl p-6 border space-y-6"
+                style={{ backgroundColor: 'var(--clan-surface)', borderColor: 'var(--clan-border)' }}>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <CalendarCheck className="h-5 w-5" style={{ color: 'var(--clan-primary)' }} />
+                  Sistema de Presença Diária
+                </h2>
+
+                {/* Toggle principal */}
+                <div
+                  className="flex items-center justify-between p-5 rounded-xl border cursor-pointer transition-all"
+                  style={{
+                    borderColor: attendanceEnabled ? 'var(--clan-primary)' : 'var(--clan-border)',
+                    backgroundColor: attendanceEnabled ? 'var(--clan-primary)18' : 'var(--clan-bg)',
+                  }}
+                  onClick={() => setAttendanceEnabled(prev => !prev)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: attendanceEnabled ? 'var(--clan-primary)' : 'var(--clan-surface-hover)' }}
+                    >
+                      <CalendarCheck className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Presença Diária</p>
+                      <p className="text-sm" style={{ color: 'var(--clan-text-muted)' }}>
+                        {attendanceEnabled
+                          ? 'Membros podem marcar presença e ganhar pontos diariamente'
+                          : 'O sistema de presença está desativado no clã'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {attendanceEnabled ? (
+                      <ToggleRight className="h-10 w-10" style={{ color: 'var(--clan-primary)' }} />
+                    ) : (
+                      <ToggleLeft className="h-10 w-10" style={{ color: 'var(--clan-text-muted)' }} />
+                    )}
+                  </div>
+                </div>
+
+                {/* Detalhes do sistema */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium" style={{ color: 'var(--clan-text-muted)' }}>O que isso afeta:</p>
+                  {[
+                    {
+                      icon: '🏠',
+                      title: 'Card no Dashboard',
+                      desc: attendanceEnabled
+                        ? 'Visível — membros verão o card "Presença" na tela inicial'
+                        : 'Oculto — o card "Presença" não aparece no dashboard',
+                      active: attendanceEnabled,
+                    },
+                    {
+                      icon: '📋',
+                      title: 'Página de Presença (/attendance)',
+                      desc: attendanceEnabled
+                        ? 'Acessível — membros podem marcar presença e ver histórico'
+                        : 'Bloqueada — exibirá mensagem de funcionalidade desativada',
+                      active: attendanceEnabled,
+                    },
+                    {
+                      icon: '🏆',
+                      title: 'Pontos por Presença',
+                      desc: attendanceEnabled
+                        ? 'Ativos — +10 pontos por check-in diário'
+                        : 'Inativos — nenhum ponto por presença será concedido',
+                      active: attendanceEnabled,
+                    },
+                  ].map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-4 rounded-lg border"
+                      style={{
+                        borderColor: 'var(--clan-border)',
+                        backgroundColor: 'var(--clan-bg)',
+                      }}
+                    >
+                      <span className="text-xl">{item.icon}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">{item.title}</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--clan-text-muted)' }}>{item.desc}</p>
+                      </div>
+                      <span
+                        className="text-xs font-bold px-2 py-1 rounded-full"
+                        style={{
+                          backgroundColor: item.active ? 'var(--clan-primary)22' : 'var(--clan-surface-hover)',
+                          color: item.active ? 'var(--clan-primary)' : 'var(--clan-text-muted)',
+                        }}
+                      >
+                        {item.active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-start gap-3 p-4 rounded-lg border"
+                  style={{ borderColor: 'var(--clan-border)', backgroundColor: 'var(--clan-bg)' }}>
+                  <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" style={{ color: 'var(--clan-accent)' }} />
+                  <p className="text-xs" style={{ color: 'var(--clan-text-muted)' }}>
+                    Clique no toggle acima para ativar/desativar e depois clique em <strong className="text-white">Salvar Tudo</strong> para aplicar.
+                  </p>
                 </div>
               </div>
             )}
