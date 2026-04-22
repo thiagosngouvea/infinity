@@ -8,7 +8,7 @@ import { query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore'
 import { User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Crown, UserX, UserCheck, Trash2, AlertTriangle, Star } from 'lucide-react';
+import { Shield, ArrowLeft, Crown, UserX, UserCheck, Trash2, AlertTriangle, Star, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 
@@ -17,7 +17,18 @@ function AdminMembersContent() {
   const { clan } = useClan();
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const { confirm, ConfirmDialog } = useConfirm();
+
+  const filteredMembers = members.filter(m => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      m.nick?.toLowerCase().includes(q) ||
+      m.email?.toLowerCase().includes(q) ||
+      m.whatsapp?.toLowerCase().includes(q)
+    );
+  });
 
   useEffect(() => {
     loadMembers();
@@ -186,6 +197,27 @@ function AdminMembersContent() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Barra de Busca */}
+        <div className="mb-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+          <input
+            id="members-search"
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nick, email ou WhatsApp..."
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <div className="mb-6 bg-yellow-900/30 border border-yellow-700 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
@@ -199,8 +231,15 @@ function AdminMembersContent() {
           </div>
         </div>
 
+        {/* Contador */}
+        {search.trim() && (
+          <p className="text-sm text-gray-400 mb-3">
+            {filteredMembers.length} resultado{filteredMembers.length !== 1 ? 's' : ''} para "{search}"
+          </p>
+        )}
+
         <div className="space-y-4">
-          {members.map((member) => (
+          {filteredMembers.map((member) => (
             <div 
               key={member.id}
               className={`bg-gray-800 rounded-lg p-6 border ${
@@ -305,10 +344,12 @@ function AdminMembersContent() {
           ))}
         </div>
 
-        {members.length === 0 && (
+        {filteredMembers.length === 0 && (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
             <UserX className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">Nenhum membro encontrado</p>
+            <p className="text-gray-400">
+              {search.trim() ? `Nenhum membro encontrado para "${search}"` : 'Nenhum membro encontrado'}
+            </p>
           </div>
         )}
       </div>
