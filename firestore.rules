@@ -104,6 +104,11 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
+    match /clans/{clanSlug}/tutorials/{tutorialId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     // ─── Coleção legada /users (raiz) — somente para migração ────────────────
     // Permite que usuários autenticados leiam o próprio doc antigo.
     // Pode ser removida após todos os usuários serem migrados.

@@ -48,4 +48,5 @@ export const COLS = {
   notifications: 'notifications',
   items:         'items',
   redemptions:   'redemptions',
+  tutorials:     'tutorials',
 } as const;

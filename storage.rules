@@ -2,12 +2,31 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Logos dos clãs — leitura pública, escrita apenas autenticado
-    // (a verificação de admin é feita no app; Storage não tem acesso ao Firestore)
     match /clans/{clanSlug}/logo {
       allow read: if true;
       allow write: if request.auth != null
                    && request.resource.size < 5 * 1024 * 1024  // max 5MB
                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // Tutoriais / PDFs — leitura + escrita por qualquer membro autenticado
+    // A restrição de papel (somente admins veem o botão) é aplicada no app.
+    // Somente PDFs, máximo 20 MB.
+    match /clans/{clanSlug}/tutorials/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 20 * 1024 * 1024  // max 20 MB
+                   && request.resource.contentType == 'application/pdf';
+      allow delete: if request.auth != null;
+    }
+
+    // Imagens genéricas do clã (itens da loja, etc.) — autenticado, máx 10 MB
+    match /clans/{clanSlug}/images/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024  // max 10 MB
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
     }
 
     // Regra padrão: bloquear tudo que não foi explicitamente permitido

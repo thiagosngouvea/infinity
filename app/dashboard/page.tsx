@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { Event, Notification } from '@/types';
 import { clanCol, COLS } from '@/lib/paths';
-import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag } from 'lucide-react';
+import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
@@ -40,11 +40,14 @@ function DashboardContent() {
         limit(5)
       );
       const eventsSnapshot = await getDocs(eventsQuery);
-      const events = eventsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date.toDate()
-      } as Event));
+      const now = new Date();
+      const events = eventsSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().date.toDate()
+        } as Event))
+        .filter(event => event.date >= now);
       setUpcomingEvents(events);
 
       // Carregar notificações não lidas
@@ -186,6 +189,15 @@ function DashboardContent() {
             <Users className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Membros</h3>
             <p className="text-indigo-200 text-sm">Ver membros do clã</p>
+          </Link>
+
+          <Link
+            href="/tutorials"
+            className="bg-gradient-to-br from-teal-600 to-teal-800 rounded-lg p-6 hover:from-teal-700 hover:to-teal-900 transition cursor-pointer"
+          >
+            <BookOpen className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Tutoriais</h3>
+            <p className="text-teal-200 text-sm">Guias e tutoriais</p>
           </Link>
         </div>
 

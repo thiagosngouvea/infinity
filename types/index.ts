@@ -145,3 +145,17 @@ export interface Redemption {
   deliveredBy?: string;
 }
 
+export interface Tutorial {
+  id: string;
+  title: string;
+  description: string;
+  type: 'markdown' | 'pdf';
+  content?: string;        // Markdown text (when type === 'markdown')
+  pdfUrl?: string;         // Download URL (when type === 'pdf')
+  pdfFileName?: string;    // Original file name of the PDF
+  category: string;
+  pinned: boolean;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}
