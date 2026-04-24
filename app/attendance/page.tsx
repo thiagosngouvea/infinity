@@ -10,6 +10,7 @@ import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { CheckCircle, ArrowLeft, Calendar, Award } from 'lucide-react';
 import Link from 'next/link';
+import LoadingLogo from '@/components/LoadingLogo';
 
 function AttendanceContent() {
   const { userData, refreshUserData } = useAuth();
@@ -92,7 +93,7 @@ function AttendanceContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }

@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
+import LoadingLogo from '@/components/LoadingLogo';
 
 const eventTypes = ['TW', 'GvG', 'Boss', 'Farm', 'Outro'];
 
@@ -227,7 +228,7 @@ function EventsContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }
@@ -486,8 +487,8 @@ function EventsContent() {
                         disabled={isAttendanceClosed}
                         title={isAttendanceClosed ? 'Período de presença encerrado' : undefined}
                         className={`flex-1 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2 ${isAttendanceClosed
-                            ? 'bg-gray-600 cursor-not-allowed opacity-50'
-                            : 'bg-green-600 hover:bg-green-700'
+                          ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                          : 'bg-green-600 hover:bg-green-700'
                           }`}
                       >
                         <Check className="h-5 w-5" />

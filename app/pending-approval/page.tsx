@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Clock, Shield } from 'lucide-react';
+import LoadingLogo from '@/components/LoadingLogo';
 
 export default function PendingApproval() {
   const { user, userData, signOut } = useAuth();
@@ -25,7 +26,7 @@ export default function PendingApproval() {
   if (!userData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }

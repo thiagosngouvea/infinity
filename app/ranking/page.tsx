@@ -11,6 +11,7 @@ import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { Trophy, ArrowLeft, Medal, Award, TrendingUp, ShoppingBag, RefreshCw, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import LoadingLogo from '@/components/LoadingLogo';
 
 interface MemberWithStats extends User {
   pointsSpent: number;
@@ -185,7 +186,7 @@ function RankingContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }

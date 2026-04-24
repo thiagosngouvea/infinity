@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
 import { useConfirm } from '@/components/ConfirmModal';
+import LoadingLogo from '@/components/LoadingLogo';
 
 function AdminContent() {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
@@ -90,7 +91,7 @@ function AdminContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }

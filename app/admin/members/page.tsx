@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { Shield, ArrowLeft, Crown, UserX, UserCheck, Trash2, AlertTriangle, Star, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
+import LoadingLogo from '@/components/LoadingLogo';
 
 function AdminMembersContent() {
   const { userData } = useAuth();
@@ -176,7 +177,7 @@ function AdminMembersContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }

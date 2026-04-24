@@ -12,6 +12,7 @@ import { Gift, Plus, ArrowLeft, Users, Trophy, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 import RaffleWheel from '@/components/RaffleWheel';
+import LoadingLogo from '@/components/LoadingLogo';
 
 function RafflesContent() {
   const { userData } = useAuth();
@@ -209,7 +210,7 @@ function RafflesContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }
