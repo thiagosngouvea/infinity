@@ -145,3 +145,43 @@ export interface Redemption {
   deliveredBy?: string;
 }
 
+export interface Tutorial {
+  id: string;
+  title: string;
+  description: string;
+  type: 'markdown' | 'pdf' | 'video';
+  content?: string;           // Markdown text (when type === 'markdown')
+  pdfUrl?: string;            // Download URL (when type === 'pdf')
+  pdfFileName?: string;       // Original file name of the PDF
+  videoUrl?: string;          // Download/stream URL (when type === 'video')
+  videoFileName?: string;     // Original file name of the video
+  category: string;
+  pinned: boolean;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+// ─── Contas 0800 ──────────────────────────────────────────────────────────────
+
+export interface Account0800Entry {
+  nick: string;       // Nick da conta alt
+  classe: string;     // Sigla da classe (EP, WB, MG, etc.)
+  login: string;      // Login/email da conta
+  senha: string;      // Senha da conta
+  reborn: string;     // Nível de reborn
+  meridiano: string;  // Meridiano
+  cultivo: string;    // Cultivo
+  pedra: string;      // Pedra
+  ceu: string;        // Nível de céu
+  refino: string;     // Refino
+}
+
+export interface Account0800 {
+  id: string;
+  userId: string;         // ID do dono (user)
+  userNick: string;       // Nick do dono para exibição
+  accounts: Account0800Entry[];
+  createdAt: Date;
+  updatedAt: Date;
+}
