@@ -391,6 +391,12 @@ function EventsContent() {
           <div className="grid gap-6">
             {events.map((event) => {
               const myVote = myVotes[event.id];
+              const now = new Date();
+              const eventStart = new Date(event.date);
+              const attendanceDeadline = new Date(eventStart.getTime() + 90 * 60 * 1000); // +1h30
+              const isAttendanceWindow = now >= eventStart && now <= attendanceDeadline;
+              const isAttendanceClosed = now > attendanceDeadline;
+              const isBeforeEvent = now < eventStart;
               
               return (
                 <div key={event.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
@@ -452,7 +458,9 @@ function EventsContent() {
                         {myVote.canParticipate ? (
                           <>
                             <Check className="h-5 w-5 text-green-500" />
-                            Você confirmou presença
+                            {isAttendanceWindow || isAttendanceClosed
+                              ? 'Presença marcada!'
+                              : 'Você confirmou presença'}
                           </>
                         ) : (
                           <>
@@ -461,29 +469,41 @@ function EventsContent() {
                           </>
                         )}
                       </p>
-                      <button
-                        onClick={() => vote(event.id, !myVote.canParticipate)}
-                        className="mt-2 text-sm text-red-400 hover:text-red-300"
-                      >
-                        Alterar voto
-                      </button>
+                      {/* Só permite alterar voto antes do evento começar */}
+                      {isBeforeEvent && (
+                        <button
+                          onClick={() => vote(event.id, !myVote.canParticipate)}
+                          className="mt-2 text-sm text-red-400 hover:text-red-300"
+                        >
+                          Alterar voto
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => vote(event.id, true)}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
+                        onClick={() => !isAttendanceClosed && vote(event.id, true)}
+                        disabled={isAttendanceClosed}
+                        title={isAttendanceClosed ? 'Período de presença encerrado' : undefined}
+                        className={`flex-1 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2 ${
+                          isAttendanceClosed
+                            ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                            : 'bg-green-600 hover:bg-green-700'
+                        }`}
                       >
                         <Check className="h-5 w-5" />
-                        Posso Participar
+                        Marcar Presença
                       </button>
-                      <button
-                        onClick={() => vote(event.id, false)}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
-                      >
-                        <X className="h-5 w-5" />
-                        Não Posso
-                      </button>
+                      {/* "Não Posso" só aparece antes do evento começar */}
+                      {isBeforeEvent && (
+                        <button
+                          onClick={() => vote(event.id, false)}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
+                        >
+                          <X className="h-5 w-5" />
+                          Não Posso
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
