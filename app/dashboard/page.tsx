@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { Event, Notification } from '@/types';
 import { clanCol, COLS } from '@/lib/paths';
-import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen } from 'lucide-react';
+import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
@@ -199,6 +199,17 @@ function DashboardContent() {
             <h3 className="text-xl font-bold text-white mb-1">Tutoriais</h3>
             <p className="text-teal-200 text-sm">Guias e tutoriais</p>
           </Link>
+
+          {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
+            <Link
+              href="/accounts"
+              className="bg-gradient-to-br from-orange-600 to-orange-800 rounded-lg p-6 hover:from-orange-700 hover:to-orange-900 transition cursor-pointer"
+            >
+              <KeyRound className="h-10 w-10 text-white mb-3" />
+              <h3 className="text-xl font-bold text-white mb-1">Contas 0800</h3>
+              <p className="text-orange-200 text-sm">Gerenciar contas Alt</p>
+            </Link>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

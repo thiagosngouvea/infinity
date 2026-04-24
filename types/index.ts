@@ -161,3 +161,27 @@ export interface Tutorial {
   createdAt: Date;
   updatedAt?: Date;
 }
+
+// ─── Contas 0800 ──────────────────────────────────────────────────────────────
+
+export interface Account0800Entry {
+  nick: string;       // Nick da conta alt
+  classe: string;     // Sigla da classe (EP, WB, MG, etc.)
+  login: string;      // Login/email da conta
+  senha: string;      // Senha da conta
+  reborn: string;     // Nível de reborn
+  meridiano: string;  // Meridiano
+  cultivo: string;    // Cultivo
+  pedra: string;      // Pedra
+  ceu: string;        // Nível de céu
+  refino: string;     // Refino
+}
+
+export interface Account0800 {
+  id: string;
+  userId: string;         // ID do dono (user)
+  userNick: string;       // Nick do dono para exibição
+  accounts: Account0800Entry[];
+  createdAt: Date;
+  updatedAt: Date;
+}

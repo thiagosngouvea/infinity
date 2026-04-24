@@ -109,6 +109,11 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
+    // Contas 0800 — acesso exclusivo para admins e super_admins
+    match /clans/{clanSlug}/accounts0800/{docId} {
+      allow read, write: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     // ─── Coleção legada /users (raiz) — somente para migração ────────────────
     // Permite que usuários autenticados leiam o próprio doc antigo.
     // Pode ser removida após todos os usuários serem migrados.
