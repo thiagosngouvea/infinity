@@ -9,14 +9,17 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // Tutoriais / PDFs — leitura + escrita por qualquer membro autenticado
+    // Tutoriais — PDFs (max 20 MB) e Vídeos (max 200 MB)
     // A restrição de papel (somente admins veem o botão) é aplicada no app.
-    // Somente PDFs, máximo 20 MB.
     match /clans/{clanSlug}/tutorials/{fileName} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null
-                   && request.resource.size < 20 * 1024 * 1024  // max 20 MB
-                   && request.resource.contentType == 'application/pdf';
+      allow write: if request.auth != null && (
+        (request.resource.contentType == 'application/pdf'
+          && request.resource.size < 20 * 1024 * 1024)   // PDF: max 20 MB
+        ||
+        (request.resource.contentType.matches('video/.*')
+          && request.resource.size < 200 * 1024 * 1024)  // Vídeo: max 200 MB
+      );
       allow delete: if request.auth != null;
     }
 

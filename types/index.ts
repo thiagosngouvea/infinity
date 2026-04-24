@@ -149,10 +149,12 @@ export interface Tutorial {
   id: string;
   title: string;
   description: string;
-  type: 'markdown' | 'pdf';
-  content?: string;        // Markdown text (when type === 'markdown')
-  pdfUrl?: string;         // Download URL (when type === 'pdf')
-  pdfFileName?: string;    // Original file name of the PDF
+  type: 'markdown' | 'pdf' | 'video';
+  content?: string;           // Markdown text (when type === 'markdown')
+  pdfUrl?: string;            // Download URL (when type === 'pdf')
+  pdfFileName?: string;       // Original file name of the PDF
+  videoUrl?: string;          // Download/stream URL (when type === 'video')
+  videoFileName?: string;     // Original file name of the video
   category: string;
   pinned: boolean;
   createdBy: string;
