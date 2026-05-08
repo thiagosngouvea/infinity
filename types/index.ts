@@ -58,6 +58,14 @@ export interface User {
   approvedBy?: string;
 }
 
+export interface NickHistoryEntry {
+  id: string;
+  nick: string;          // Nick após a alteração
+  previousNick: string;  // Nick antes da alteração
+  changedAt: Date;
+  changedBy: string;     // uid do usuário que fez a alteração
+}
+
 export interface Event {
   id: string;
   title: string;
