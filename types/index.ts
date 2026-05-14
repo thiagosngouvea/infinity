@@ -74,6 +74,7 @@ export interface Event {
   type: 'TW' | 'GvG' | 'Boss' | 'Farm' | 'Outro';
   pointsForVoting: number; // Pontos por confirmar presença
   pointsForAttendance: number; // Pontos por comparecer (confirmado por admin)
+  bannerUrl?: string; // URL do banner do evento (Firebase Storage)
   createdBy: string;
   createdAt: Date;
   active: boolean;

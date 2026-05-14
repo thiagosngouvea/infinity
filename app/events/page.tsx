@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
 import { query, where, getDocs, addDoc, orderBy, deleteDoc, updateDoc, increment } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import { Event, EventVote } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins, Edit } from 'lucide-react';
+import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins, Edit, ImageIcon, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 import LoadingLogo from '@/components/LoadingLogo';
@@ -33,6 +35,13 @@ function EventsContent() {
   const [type, setType] = useState<Event['type']>('TW');
   const [pointsForVoting, setPointsForVoting] = useState(5);
   const [pointsForAttendance, setPointsForAttendance] = useState(20);
+
+  // Banner state
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -79,14 +88,43 @@ function EventsContent() {
     }
   };
 
+  // Upload do banner para o Firebase Storage
+  const uploadBanner = async (file: File, eventId: string): Promise<string> => {
+    const storageRef = ref(storage, `clans/${clan.slug}/events/${eventId}/banner`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  };
+
+  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const removeBannerSelection = () => {
+    setBannerFile(null);
+    setBannerPreview(null);
+    setBannerUrl('');
+    if (bannerInputRef.current) bannerInputRef.current.value = '';
+  };
+
   const createEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userData) return;
 
     try {
       const eventDate = new Date(`${date}T${time}`);
+      let finalBannerUrl = bannerUrl;
 
       if (editingEvent) {
+        // Upload do banner se um novo arquivo foi selecionado
+        if (bannerFile) {
+          setUploadingBanner(true);
+          finalBannerUrl = await uploadBanner(bannerFile, editingEvent.id);
+          setUploadingBanner(false);
+        }
+
         // Atualizar evento existente
         await updateDoc(clanDoc(clan.slug, COLS.events, editingEvent.id), {
           title,
@@ -94,12 +132,13 @@ function EventsContent() {
           date: eventDate,
           type,
           pointsForVoting: Number(pointsForVoting),
-          pointsForAttendance: Number(pointsForAttendance)
+          pointsForAttendance: Number(pointsForAttendance),
+          bannerUrl: finalBannerUrl || null,
         });
         toast.success('Evento atualizado com sucesso!');
       } else {
         // Criar novo evento
-        await addDoc(clanCol(clan.slug, COLS.events), {
+        const docRef = await addDoc(clanCol(clan.slug, COLS.events), {
           title,
           description,
           date: eventDate,
@@ -108,8 +147,18 @@ function EventsContent() {
           pointsForAttendance: Number(pointsForAttendance),
           createdBy: userData.id,
           createdAt: new Date(),
-          active: true
+          active: true,
+          bannerUrl: null,
         });
+
+        // Upload do banner após criar o evento (precisa do ID)
+        if (bannerFile) {
+          setUploadingBanner(true);
+          finalBannerUrl = await uploadBanner(bannerFile, docRef.id);
+          await updateDoc(clanDoc(clan.slug, COLS.events, docRef.id), { bannerUrl: finalBannerUrl });
+          setUploadingBanner(false);
+        }
+
         toast.success('Evento criado com sucesso!');
       }
 
@@ -122,10 +171,14 @@ function EventsContent() {
       setType('TW');
       setPointsForVoting(5);
       setPointsForAttendance(20);
+      setBannerFile(null);
+      setBannerPreview(null);
+      setBannerUrl('');
       loadEvents();
     } catch (error) {
       console.error('Erro ao salvar evento:', error);
       toast.error('Erro ao salvar evento');
+      setUploadingBanner(false);
     }
   };
 
@@ -144,6 +197,9 @@ function EventsContent() {
     setType(event.type);
     setPointsForVoting(event.pointsForVoting || 5);
     setPointsForAttendance(event.pointsForAttendance || 20);
+    setBannerUrl(event.bannerUrl || '');
+    setBannerPreview(event.bannerUrl || null);
+    setBannerFile(null);
     setShowCreateForm(true);
   };
 
@@ -157,6 +213,9 @@ function EventsContent() {
     setType('TW');
     setPointsForVoting(5);
     setPointsForAttendance(20);
+    setBannerFile(null);
+    setBannerPreview(null);
+    setBannerUrl('');
   };
 
   const vote = async (eventId: string, canParticipate: boolean, comment: string = '') => {
@@ -363,12 +422,70 @@ function EventsContent() {
                 </div>
               </div>
 
+              {/* Banner Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  Banner do Evento (opcional)
+                </label>
+                {bannerPreview ? (
+                  <div className="relative rounded-lg overflow-hidden border border-gray-600">
+                    <img
+                      src={bannerPreview}
+                      alt="Preview do banner"
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => bannerInputRef.current?.click()}
+                        className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm font-medium hover:bg-white/30 transition"
+                      >
+                        Trocar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={removeBannerSelection}
+                        className="px-4 py-2 bg-red-600/80 backdrop-blur-sm rounded-lg text-white text-sm font-medium hover:bg-red-700 transition"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => bannerInputRef.current?.click()}
+                    className="w-full h-36 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-red-500 hover:bg-gray-700/50 transition cursor-pointer"
+                  >
+                    <Upload className="h-8 w-8 text-gray-500" />
+                    <span className="text-sm text-gray-400">Clique para enviar um banner</span>
+                    <span className="text-xs text-gray-500">PNG, JPG ou WebP. Recomendado: 1200×400px</span>
+                  </button>
+                )}
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerSelect}
+                  className="hidden"
+                />
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition"
+                  disabled={uploadingBanner}
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
                 >
-                  {editingEvent ? 'Salvar Alterações' : 'Criar Evento'}
+                  {uploadingBanner ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      Enviando banner...
+                    </>
+                  ) : (
+                    editingEvent ? 'Salvar Alterações' : 'Criar Evento'
+                  )}
                 </button>
                 <button
                   type="button"
@@ -400,7 +517,19 @@ function EventsContent() {
               const isBeforeEvent = now < eventStart;
 
               return (
-                <div key={event.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div key={event.id} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+                  {/* Banner do evento */}
+                  {event.bannerUrl && (
+                    <div className="relative w-full h-48 overflow-hidden">
+                      <img
+                        src={event.bannerUrl}
+                        alt={`Banner - ${event.title}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-gray-800/80 to-transparent" />
+                    </div>
+                  )}
+                  <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -506,6 +635,7 @@ function EventsContent() {
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}
