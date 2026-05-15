@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
+import LoadingLogo from '@/components/LoadingLogo';
 import {
   getDocs, addDoc, deleteDoc, updateDoc,
   query, where, orderBy,
@@ -187,9 +188,7 @@ function AccountsContent() {
   }
 
   if (loading) return (
-    <div className="flex justify-center items-center h-screen bg-gray-900">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500" />
-    </div>
+    <LoadingLogo />
   );
 
   return (

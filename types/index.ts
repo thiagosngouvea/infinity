@@ -58,6 +58,14 @@ export interface User {
   approvedBy?: string;
 }
 
+export interface NickHistoryEntry {
+  id: string;
+  nick: string;          // Nick após a alteração
+  previousNick: string;  // Nick antes da alteração
+  changedAt: Date;
+  changedBy: string;     // uid do usuário que fez a alteração
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -66,6 +74,7 @@ export interface Event {
   type: 'TW' | 'GvG' | 'Boss' | 'Farm' | 'Outro';
   pointsForVoting: number; // Pontos por confirmar presença
   pointsForAttendance: number; // Pontos por comparecer (confirmado por admin)
+  bannerUrl?: string; // URL do banner do evento (Firebase Storage)
   createdBy: string;
   createdAt: Date;
   active: boolean;

@@ -6,10 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { Event, Notification } from '@/types';
 import { clanCol, COLS } from '@/lib/paths';
-import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound } from 'lucide-react';
+import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
+import LoadingLogo from '@/components/LoadingLogo';
 import { useClan } from '@/contexts/ClanContext';
 
 function DashboardContent() {
@@ -80,7 +81,7 @@ function DashboardContent() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <LoadingLogo size={128} fullscreen={false} />
       </div>
     );
   }
@@ -100,7 +101,15 @@ function DashboardContent() {
               <span className="text-xl font-bold text-white">{clan.name}</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-gray-300">{userData?.nick}</span>
+              <Link
+                href="/perfil"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-gray-700"
+                style={{ color: 'var(--clan-text-muted)' }}
+                title="Meu Perfil"
+              >
+                <UserCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">{userData?.nick}</span>
+              </Link>
               {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
                 <Link
                   href="/admin"

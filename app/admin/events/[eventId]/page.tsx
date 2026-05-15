@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, CheckCircle, XCircle, Award, Users as UsersIcon, UserPlus, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
+import LoadingLogo from '@/components/LoadingLogo';
 
 interface VoteWithUser extends EventVote {
   userEmail?: string;
@@ -360,9 +361,7 @@ function EventAttendanceContent() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
-      </div>
+      <LoadingLogo />
     );
   }
 

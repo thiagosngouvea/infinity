@@ -50,4 +50,5 @@ export const COLS = {
   redemptions:   'redemptions',
   tutorials:     'tutorials',
   accounts0800:  'accounts0800',
+  nickHistory:   'nickHistory',
 } as const;
