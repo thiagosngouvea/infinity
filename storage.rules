@@ -23,6 +23,15 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
 
+    // Banners de eventos — autenticado, imagem, máx 10 MB
+    match /clans/{clanSlug}/events/{eventId}/banner {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024  // max 10 MB
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
     // Imagens genéricas do clã (itens da loja, etc.) — autenticado, máx 10 MB
     match /clans/{clanSlug}/images/{fileName} {
       allow read: if true;
