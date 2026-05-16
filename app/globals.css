@@ -145,13 +145,13 @@ body {
 .login-slide-up     { animation: loginSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .login-slide-down   { animation: loginSlideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .login-logo-entrance { animation: loginLogoEntrance 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.login-title-reveal  { animation: loginTitleReveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; opacity: 0; }
-.login-card-entrance { animation: loginCardEntrance 1s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards; opacity: 0; }
+.login-title-reveal  { animation: loginTitleReveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; }
+.login-card-entrance { animation: loginCardEntrance 1s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards; }
 
-.login-input-reveal-1 { animation: loginInputReveal 0.5s ease-out 1s forwards; opacity: 0; }
-.login-input-reveal-2 { animation: loginInputReveal 0.5s ease-out 1.15s forwards; opacity: 0; }
-.login-input-reveal-3 { animation: loginInputReveal 0.5s ease-out 1.3s forwards; opacity: 0; }
-.login-input-reveal-4 { animation: loginInputReveal 0.5s ease-out 1.45s forwards; opacity: 0; }
+.login-input-reveal-1 { animation: loginInputReveal 0.5s ease-out 1s forwards; }
+.login-input-reveal-2 { animation: loginInputReveal 0.5s ease-out 1.15s forwards; }
+.login-input-reveal-3 { animation: loginInputReveal 0.5s ease-out 1.3s forwards; }
+.login-input-reveal-4 { animation: loginInputReveal 0.5s ease-out 1.45s forwards; }
 
 .login-shimmer {
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
@@ -169,6 +169,16 @@ body {
 
 .login-particle {
   animation: loginParticleRise linear infinite;
+}
+
+@keyframes loginExplodeFade {
+  0%   { opacity: 1; transform: scale(1); filter: blur(0); }
+  40%  { opacity: 0.6; transform: scale(1.05); filter: blur(2px); }
+  100% { opacity: 0; transform: scale(1.15); filter: blur(10px); }
+}
+
+.login-explode-fade {
+  animation: loginExplodeFade 1s ease-in forwards;
 }
 
 /* ─── Tutorial Markdown Renderer ───────────────────────────────────────────── */

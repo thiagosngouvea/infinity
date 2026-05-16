@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type MutableRefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
@@ -20,13 +20,14 @@ interface ShootingStar {
   life: number; maxLife: number; length: number;
 }
 
-function CosmicBackground() {
+function CosmicBackground({ explodingRef }: { explodingRef: MutableRefObject<boolean> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const starsRef = useRef<Star[]>([]);
   const shootingStarsRef = useRef<ShootingStar[]>([]);
   const animFrameRef = useRef<number>(0);
   const timeRef = useRef(0);
+  const explodeStartRef = useRef<number>(0);
 
   const STAR_COLORS: [number, number, number][] = [
     [255, 255, 255], [200, 220, 255], [180, 200, 255],
@@ -117,48 +118,72 @@ function CosmicBackground() {
       const t = timeRef.current += 1;
       const w = canvas.width, h = canvas.height;
       const mx = mouseRef.current.x, my = mouseRef.current.y;
+      const cx = w / 2, cy = h / 2;
       ctx.clearRect(0, 0, w, h);
 
-      // Nebula clouds (slow drift)
-      drawNebula(ctx, w * 0.2 + Math.sin(t * 0.002) * 30, h * 0.3, 250, 'rgb(100, 40, 150)', 0.4);
-      drawNebula(ctx, w * 0.8 + Math.cos(t * 0.0015) * 20, h * 0.7, 200, 'rgb(229, 62, 62)', 0.25);
-      drawNebula(ctx, w * 0.5 + Math.sin(t * 0.001) * 40, h * 0.15, 180, 'rgb(40, 80, 180)', 0.3);
+      const isExploding = explodingRef.current;
+      if (isExploding && explodeStartRef.current === 0) explodeStartRef.current = t;
+      const explodeT = isExploding ? (t - explodeStartRef.current) : 0;
+      const explodeProgress = Math.min(explodeT / 90, 1); // ~1.5s at 60fps
 
-      // Mouse nebula glow
-      if (mx > 0 && my > 0) {
+      // Nebula clouds (slow drift) — fade out during explosion
+      const nebulaFade = 1 - explodeProgress;
+      if (nebulaFade > 0) {
+        drawNebula(ctx, w * 0.2 + Math.sin(t * 0.002) * 30, h * 0.3, 250, 'rgb(100, 40, 150)', 0.4 * nebulaFade);
+        drawNebula(ctx, w * 0.8 + Math.cos(t * 0.0015) * 20, h * 0.7, 200, 'rgb(229, 62, 62)', 0.25 * nebulaFade);
+        drawNebula(ctx, w * 0.5 + Math.sin(t * 0.001) * 40, h * 0.15, 180, 'rgb(40, 80, 180)', 0.3 * nebulaFade);
+      }
+
+      // Mouse nebula glow (not during explosion)
+      if (mx > 0 && my > 0 && !isExploding) {
         drawNebula(ctx, mx, my, MOUSE_R, 'rgb(229, 62, 62)', 0.35);
       }
 
       // Stars
       const stars = starsRef.current;
       for (const s of stars) {
-        // Gentle mouse repulsion (gravitational lens feel)
-        const dx = s.x - mx, dy = s.y - my;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < MOUSE_R && dist > 0) {
-          const push = (1 - dist / MOUSE_R) * 0.08;
-          s.vx += (dx / dist) * push;
-          s.vy += (dy / dist) * push;
+        if (isExploding) {
+          // EXPLOSION: blast stars outward from center
+          const dx = s.x - cx, dy = s.y - cy;
+          const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+          const force = (3 + explodeProgress * 15) / Math.max(dist * 0.01, 0.5);
+          s.vx += (dx / dist) * force * 0.3;
+          s.vy += (dy / dist) * force * 0.3;
+          s.x += s.vx;
+          s.y += s.vy;
+          // Stars grow brighter during explosion
+          s.radius = s.baseRadius * (1 + explodeProgress * 3);
+        } else {
+          // Normal: gentle mouse repulsion
+          const dx = s.x - mx, dy = s.y - my;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < MOUSE_R && dist > 0) {
+            const push = (1 - dist / MOUSE_R) * 0.08;
+            s.vx += (dx / dist) * push;
+            s.vy += (dy / dist) * push;
+          }
+          s.vx *= 0.98; s.vy *= 0.98;
+          s.x += s.vx; s.y += s.vy;
+          if (s.x < -5) s.x = w + 5;
+          if (s.x > w + 5) s.x = -5;
+          if (s.y < -5) s.y = h + 5;
+          if (s.y > h + 5) s.y = -5;
         }
-        s.vx *= 0.98; s.vy *= 0.98;
-        s.x += s.vx; s.y += s.vy;
-        if (s.x < -5) s.x = w + 5;
-        if (s.x > w + 5) s.x = -5;
-        if (s.y < -5) s.y = h + 5;
-        if (s.y > h + 5) s.y = -5;
 
         // Twinkle
         const twinkle = 0.5 + 0.5 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
-        s.radius = s.baseRadius * (0.7 + twinkle * 0.5);
-        const nearMouse = dist < MOUSE_R ? (1 - dist / MOUSE_R) * 0.5 : 0;
-        const alpha = Math.min(s.opacity * twinkle + nearMouse, 1);
+        if (!isExploding) s.radius = s.baseRadius * (0.7 + twinkle * 0.5);
+        const distToCenter = Math.sqrt((s.x - cx) ** 2 + (s.y - cy) ** 2);
+        const nearMouse = !isExploding && distToCenter < MOUSE_R ? (1 - Math.sqrt((s.x - mx) ** 2 + (s.y - my) ** 2) / MOUSE_R) * 0.5 : 0;
+        const explodeBright = isExploding ? Math.min(explodeProgress * 2, 1) : 0;
+        const alpha = Math.min(s.opacity * twinkle + Math.max(nearMouse, 0) + explodeBright, 1);
         const [r, g, b] = s.color;
 
         // Star glow
-        if (s.baseRadius > 1.5 || nearMouse > 0.1) {
-          const glowR = s.radius * (3 + nearMouse * 4);
+        if (s.baseRadius > 1.5 || nearMouse > 0.1 || isExploding) {
+          const glowR = s.radius * (3 + (nearMouse > 0 ? nearMouse * 4 : 0) + explodeBright * 5);
           const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
-          grad.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.4})`);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.5})`);
           grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
           ctx.fillStyle = grad;
           ctx.beginPath();
@@ -172,61 +197,87 @@ function CosmicBackground() {
         ctx.fill();
       }
 
-      // Connect nearby stars with faint constellation lines
-      for (let i = 0; i < stars.length; i++) {
-        if (stars[i].baseRadius < 1.2) continue; // only bright stars
-        for (let j = i + 1; j < stars.length; j++) {
-          if (stars[j].baseRadius < 1.2) continue;
-          const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < 120) {
-            const a = (1 - d / 120) * 0.08;
-            ctx.beginPath();
-            ctx.moveTo(stars[i].x, stars[i].y);
-            ctx.lineTo(stars[j].x, stars[j].y);
-            ctx.strokeStyle = `rgba(200,220,255,${a})`;
-            ctx.lineWidth = 0.4;
-            ctx.stroke();
+      // Connect nearby stars with faint constellation lines (not during explosion)
+      if (!isExploding) {
+        for (let i = 0; i < stars.length; i++) {
+          if (stars[i].baseRadius < 1.2) continue;
+          for (let j = i + 1; j < stars.length; j++) {
+            if (stars[j].baseRadius < 1.2) continue;
+            const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < 120) {
+              const a = (1 - d / 120) * 0.08;
+              ctx.beginPath();
+              ctx.moveTo(stars[i].x, stars[i].y);
+              ctx.lineTo(stars[j].x, stars[j].y);
+              ctx.strokeStyle = `rgba(200,220,255,${a})`;
+              ctx.lineWidth = 0.4;
+              ctx.stroke();
+            }
           }
         }
       }
 
-      // Shooting stars
-      if (Math.random() < 0.008) {
-        shootingStarsRef.current.push({
-          x: Math.random() * w, y: Math.random() * h * 0.4,
-          vx: (Math.random() * 4 + 3) * (Math.random() < 0.5 ? 1 : -1),
-          vy: Math.random() * 2 + 1,
-          life: 0, maxLife: Math.random() * 40 + 30, length: Math.random() * 60 + 40,
+      // Shooting stars (not during explosion)
+      if (!isExploding) {
+        if (Math.random() < 0.008) {
+          shootingStarsRef.current.push({
+            x: Math.random() * w, y: Math.random() * h * 0.4,
+            vx: (Math.random() * 4 + 3) * (Math.random() < 0.5 ? 1 : -1),
+            vy: Math.random() * 2 + 1,
+            life: 0, maxLife: Math.random() * 40 + 30, length: Math.random() * 60 + 40,
+          });
+        }
+        shootingStarsRef.current = shootingStarsRef.current.filter(ss => {
+          ss.x += ss.vx; ss.y += ss.vy; ss.life++;
+          const progress = ss.life / ss.maxLife;
+          const alpha = progress < 0.3 ? progress / 0.3 : 1 - (progress - 0.3) / 0.7;
+          const grad = ctx.createLinearGradient(ss.x, ss.y, ss.x - ss.vx * (ss.length / 5), ss.y - ss.vy * (ss.length / 5));
+          grad.addColorStop(0, `rgba(255,255,255,${alpha * 0.9})`);
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.beginPath();
+          ctx.moveTo(ss.x, ss.y);
+          ctx.lineTo(ss.x - ss.vx * (ss.length / 5), ss.y - ss.vy * (ss.length / 5));
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          return ss.life < ss.maxLife;
         });
       }
-      shootingStarsRef.current = shootingStarsRef.current.filter(ss => {
-        ss.x += ss.vx; ss.y += ss.vy; ss.life++;
-        const progress = ss.life / ss.maxLife;
-        const alpha = progress < 0.3 ? progress / 0.3 : 1 - (progress - 0.3) / 0.7;
-        const grad = ctx.createLinearGradient(ss.x, ss.y, ss.x - ss.vx * (ss.length / 5), ss.y - ss.vy * (ss.length / 5));
-        grad.addColorStop(0, `rgba(255,255,255,${alpha * 0.9})`);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.beginPath();
-        ctx.moveTo(ss.x, ss.y);
-        ctx.lineTo(ss.x - ss.vx * (ss.length / 5), ss.y - ss.vy * (ss.length / 5));
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        return ss.life < ss.maxLife;
-      });
 
-      // Infinity symbol — strong pulsing glow, 3 layers
-      const pulse = 0.5 + 0.5 * Math.sin(t * 0.025); // 0..1 smooth pulse
-      // Outer ring: large, soft glow
-      const outerAlpha = 0.15 + pulse * 0.25;
-      drawInfinity(ctx, w / 2, h / 2, 140 + Math.sin(t * 0.008) * 12, outerAlpha, 2 + pulse * 1.5, 40 + pulse * 30);
-      // Middle ring
-      const midAlpha = 0.2 + pulse * 0.3;
-      drawInfinity(ctx, w / 2, h / 2, 100 + Math.cos(t * 0.01) * 8, midAlpha, 2.5 + pulse * 1, 25 + pulse * 20);
-      // Inner ring: brightest core
-      const innerAlpha = 0.25 + pulse * 0.35;
-      drawInfinity(ctx, w / 2, h / 2, 60 + Math.sin(t * 0.012) * 5, innerAlpha, 1.5 + pulse * 0.5, 15 + pulse * 15);
+      // Infinity symbol
+      const pulse = 0.5 + 0.5 * Math.sin(t * 0.025);
+      if (isExploding) {
+        // Explosion: infinity symbol grows massive and bright, then fades
+        const easeOut = 1 - Math.pow(1 - explodeProgress, 3);
+        const infSize = 140 + easeOut * 400;
+        const infAlpha = Math.max(0.8 - explodeProgress * 0.8, 0);
+        const infLw = 4 + easeOut * 6;
+        const infBlur = 60 + easeOut * 80;
+        drawInfinity(ctx, cx, cy, infSize, infAlpha, infLw, infBlur);
+      } else {
+        // Normal pulsing — subtle, not overpowering the form
+        const outerAlpha = 0.06 + pulse * 0.08;
+        drawInfinity(ctx, cx, cy, 140 + Math.sin(t * 0.008) * 12, outerAlpha, 1.5 + pulse * 1, 15 + pulse * 12);
+        const midAlpha = 0.08 + pulse * 0.1;
+        drawInfinity(ctx, cx, cy, 100 + Math.cos(t * 0.01) * 8, midAlpha, 1.5 + pulse * 0.5, 10 + pulse * 10);
+        const innerAlpha = 0.1 + pulse * 0.12;
+        drawInfinity(ctx, cx, cy, 60 + Math.sin(t * 0.012) * 5, innerAlpha, 1 + pulse * 0.5, 8 + pulse * 8);
+      }
+
+      // Central flash during explosion
+      if (isExploding && explodeProgress > 0.1) {
+        const flashAlpha = Math.min((explodeProgress - 0.1) * 1.5, 0.7);
+        const flashR = explodeProgress * Math.max(w, h) * 1.2;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, flashR);
+        grad.addColorStop(0, `rgba(255,255,255,${flashAlpha})`);
+        grad.addColorStop(0.3, `rgba(229,200,255,${flashAlpha * 0.5})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, flashR, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       animFrameRef.current = requestAnimationFrame(animate);
     };
@@ -270,6 +321,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [exploding, setExploding] = useState(false);
+  const explodingRef = useRef(false);
   const { signIn } = useAuth();
   const { clan, loading: clanLoading } = useClan();
   const router = useRouter();
@@ -282,7 +335,11 @@ export default function Login() {
 
     try {
       await signIn(email, password);
-      toast.success('Login realizado com sucesso!');
+      // Trigger galaxy explosion!
+      explodingRef.current = true;
+      setExploding(true);
+      // Wait for explosion animation to play, then navigate
+      await new Promise(resolve => setTimeout(resolve, 1800));
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
@@ -305,7 +362,18 @@ export default function Login() {
       }}
     >
       {/* ── Cosmic Background — universe + infinity ─────────────────────────── */}
-      {mounted && <CosmicBackground />}
+      {mounted && <CosmicBackground explodingRef={explodingRef} />}
+
+      {/* White flash overlay for explosion transition */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-1000"
+        style={{
+          zIndex: 50,
+          backgroundColor: 'white',
+          opacity: exploding ? 1 : 0,
+          transitionDelay: exploding ? '0.8s' : '0s',
+        }}
+      />
 
       {/* Floating cosmic icons in corners */}
       <div className="absolute top-8 left-8 opacity-15 login-float" style={{ animationDelay: '0s' }}>
@@ -338,7 +406,7 @@ export default function Login() {
       />
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-sm w-full">
+      <div className={`relative z-10 max-w-sm w-full ${exploding ? 'login-explode-fade' : ''}`}>
 
         {/* ── Logo + Clan Name ───────────────────────────────────────────────── */}
         <div className="text-center mb-5 relative">
@@ -427,7 +495,7 @@ export default function Login() {
         <div
           className="login-card-entrance relative rounded-2xl p-6 border login-border-glow overflow-hidden"
           style={{
-            backgroundColor: 'rgba(20, 20, 35, 0.7)',
+            backgroundColor: 'rgba(10, 10, 25, 0.92)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
           }}
