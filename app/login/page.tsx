@@ -626,7 +626,7 @@ export default function Login() {
                     ) : (
                       <>
                         <Infinity className="w-4 h-4" />
-                        Acessar o Universo
+                        Acessar
                       </>
                     )}
                   </span>
@@ -644,7 +644,7 @@ export default function Login() {
             {/* Register link */}
             <div className="text-center">
               <p style={{ color: 'var(--clan-text-muted)' }} className="text-sm">
-                Novo no universo?{' '}
+                Novo no clã?{' '}
                 <Link
                   href="/register"
                   className="font-bold transition-all duration-300 relative"
@@ -658,7 +658,7 @@ export default function Login() {
                     e.currentTarget.style.textShadow = 'none';
                   }}
                 >
-                  Junte-se à constelação
+                  Cadastre-se
                 </Link>
               </p>
             </div>
@@ -671,7 +671,7 @@ export default function Login() {
             className="text-xs uppercase tracking-widest"
             style={{ color: 'var(--clan-text-muted)', opacity: 0.4 }}
           >
-            ✦ Beyond the Stars, Beyond the Limits ✦
+            ✦ Ao Infinito e Além ✦
           </p>
         </div>
       </div>
