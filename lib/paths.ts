@@ -51,4 +51,7 @@ export const COLS = {
   tutorials:     'tutorials',
   accounts0800:  'accounts0800',
   nickHistory:   'nickHistory',
+  twSessions:    'twSessions',
+  twVotes:       'twVotes',
+  twRoster:      'twRoster',
 } as const;

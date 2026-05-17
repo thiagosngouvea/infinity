@@ -194,3 +194,40 @@ export interface Account0800 {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ─── Territory War (TW) ───────────────────────────────────────────────────────
+
+export interface TWSession {
+  id: string;
+  title: string;               // Ex: "TW - Semana 20"
+  date: Date;
+  description?: string;
+  active: boolean;             // TW disponível para votos/roster
+  closed: boolean;             // TW encerrada (vira histórico)
+  pointsForVoting: number;     // Pontos por confirmar presença
+  pointsForRoster: number;     // Pontos por ser selecionado para o roster
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface TWVote {
+  id: string;
+  twId: string;
+  userId: string;
+  userName: string;
+  userClass: PlayerClass;
+  canParticipate: boolean;
+  votingPointsAwarded?: boolean; // Se já recebeu pontos por confirmar
+  createdAt: Date;
+}
+
+export interface TWRosterEntry {
+  id: string;
+  twId: string;
+  userId: string;
+  userName: string;
+  userClass: PlayerClass;
+  selectedBy: string;          // Admin que selecionou
+  selectedAt: Date;
+  rosterPointsAwarded?: boolean; // Se já recebeu pontos por estar no roster
+}

@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { Event, Notification } from '@/types';
 import { clanCol, COLS } from '@/lib/paths';
-import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound, UserCircle } from 'lucide-react';
+import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound, UserCircle, Sword } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
@@ -153,6 +153,15 @@ function DashboardContent() {
             <p className="text-blue-200 text-sm">Votar em eventos</p>
           </Link>
 
+          <Link
+            href="/tw"
+            className="bg-gradient-to-br from-rose-700 to-red-900 rounded-lg p-6 hover:from-rose-800 hover:to-red-950 transition cursor-pointer"
+          >
+            <Sword className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">TW</h3>
+            <p className="text-rose-200 text-sm">Confirmar presença na TW</p>
+          </Link>
+
           {attendanceEnabled && (
             <Link
               href="/attendance"
@@ -163,6 +172,8 @@ function DashboardContent() {
               <p className="text-green-200 text-sm">Marcar presença</p>
             </Link>
           )}
+
+
 
           <Link
             href="/raffles"
