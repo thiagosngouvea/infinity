@@ -1,30 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
 import { query, where, getDocs, updateDoc, orderBy } from 'firebase/firestore';
 import { Notification } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { Bell, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function NotificationBell() {
   const { userData } = useAuth();
   const { clan } = useClan();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
 
-  useEffect(() => {
-    if (userData) {
-      loadNotifications();
-      // Recarregar a cada 30 segundos
-      const interval = setInterval(loadNotifications, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [userData]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!userData) return;
 
     try {
@@ -45,7 +38,16 @@ export default function NotificationBell() {
     } catch (error) {
       console.error('Erro ao carregar notificações:', error);
     }
-  };
+  }, [userData, clan.slug]);
+
+  useEffect(() => {
+    if (userData) {
+      loadNotifications();
+      // Recarregar a cada 30 segundos
+      const interval = setInterval(loadNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userData, loadNotifications]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -55,6 +57,22 @@ export default function NotificationBell() {
       loadNotifications();
     } catch (error) {
       console.error('Erro ao marcar como lida:', error);
+    }
+  };
+
+  const handleNotificationClick = async (notif: Notification) => {
+    try {
+      if (!notif.read) {
+        await updateDoc(clanDoc(clan.slug, COLS.notifications, notif.id), { read: true });
+      }
+    } catch (error) {
+      console.error('Erro ao marcar como lida:', error);
+    } finally {
+      setShowPanel(false);
+      loadNotifications();
+      if (notif.link) {
+        router.push(notif.link);
+      }
     }
   };
 
@@ -78,6 +96,8 @@ export default function NotificationBell() {
         return '✅';
       case 'event':
         return '📅';
+      case 'tw':
+        return '⚔️';
       default:
         return '📢';
     }
@@ -140,7 +160,7 @@ export default function NotificationBell() {
                           ? 'bg-gray-800 hover:bg-gray-750' 
                           : 'bg-gray-700 hover:bg-gray-650'
                       }`}
-                      onClick={() => !notif.read && markAsRead(notif.id)}
+                      onClick={() => handleNotificationClick(notif)}
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-2xl">{getNotificationIcon(notif.type)}</span>

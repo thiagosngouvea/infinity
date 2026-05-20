@@ -12,10 +12,12 @@ import {
   deleteDoc,
   updateDoc,
   increment,
+  writeBatch,
   orderBy,
 } from 'firebase/firestore';
-import { TWSession, TWVote } from '@/types';
+import { TWSession, TWVote, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
+import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft, Sword, Check, X, Users, Coins, Clock,
@@ -97,12 +99,56 @@ function TWContent() {
         });
         toast.success('TW atualizada!');
       } else {
-        await addDoc(clanCol(clan.slug, COLS.twSessions), {
+        const docRef = await addDoc(clanCol(clan.slug, COLS.twSessions), {
           title: formTitle, description: formDesc, date,
           active: true, closed: false,
           pointsForVoting: Number(formPtsVote), pointsForRoster: Number(formPtsRoster),
           createdBy: userData.id, createdAt: new Date(),
         });
+
+        try {
+          const membersSnap = await getDocs(query(
+            clanCol(clan.slug, COLS.users),
+            where('role', 'in', ['member', 'admin', 'super_admin'])
+          ));
+          const members = membersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+
+          const when = date.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          const batchSize = 450;
+          let batch = writeBatch(db);
+          let count = 0;
+
+          for (const m of members) {
+            if (count > 0 && count % batchSize === 0) {
+              await batch.commit();
+              batch = writeBatch(db);
+            }
+
+            const notifId = crypto.randomUUID();
+            batch.set(clanDoc(clan.slug, COLS.notifications, notifId), {
+              userId: m.id,
+              type: 'tw',
+              title: 'Nova TW criada',
+              message: `${formTitle} — ${when}`,
+              link: `/tw#${docRef.id}`,
+              read: false,
+              createdAt: new Date(),
+            });
+            count += 1;
+          }
+
+          if (count > 0) await batch.commit();
+        } catch (error) {
+          console.error('Erro ao criar notificações da TW:', error);
+        }
+
         toast.success('TW criada!');
       }
       setShowForm(false); resetForm(); loadData();
@@ -413,6 +459,7 @@ function TWContent() {
 
                   return (
                     <div
+                      id={session.id}
                       key={session.id}
                       className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-lg"
                     >
@@ -597,6 +644,7 @@ function TWContent() {
 
                   return (
                     <div
+                      id={session.id}
                       key={session.id}
                       className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden opacity-80 hover:opacity-100 transition"
                     >

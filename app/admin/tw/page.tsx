@@ -96,10 +96,11 @@ function AdminTWContent() {
     if (!userData) return;
     setSubmitting(true);
     try {
-      await addDoc(clanCol(clan.slug, COLS.twSessions), {
+      const sessionDate = new Date(`${date}T${time}`);
+      const docRef = await addDoc(clanCol(clan.slug, COLS.twSessions), {
         title,
         description,
-        date: new Date(`${date}T${time}`),
+        date: sessionDate,
         active: true,
         closed: false,
         pointsForVoting: Number(pointsForVoting),
@@ -107,6 +108,50 @@ function AdminTWContent() {
         createdBy: userData.id,
         createdAt: new Date(),
       });
+
+      try {
+        const membersSnap = await getDocs(query(
+          clanCol(clan.slug, COLS.users),
+          where('role', 'in', ['member', 'admin', 'super_admin'])
+        ));
+        const members = membersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+
+        const when = sessionDate.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        const batchSize = 450;
+        let batch = writeBatch(db);
+        let count = 0;
+
+        for (const m of members) {
+          if (count > 0 && count % batchSize === 0) {
+            await batch.commit();
+            batch = writeBatch(db);
+          }
+
+          const notifId = crypto.randomUUID();
+          batch.set(clanDoc(clan.slug, COLS.notifications, notifId), {
+            userId: m.id,
+            type: 'tw',
+            title: 'Nova TW criada',
+            message: `${title} — ${when}`,
+            link: `/tw#${docRef.id}`,
+            read: false,
+            createdAt: new Date(),
+          });
+          count += 1;
+        }
+
+        if (count > 0) await batch.commit();
+      } catch (error) {
+        console.error('Erro ao criar notificações da TW:', error);
+      }
+
       toast.success('TW criada com sucesso!');
       setShowForm(false);
       resetForm();

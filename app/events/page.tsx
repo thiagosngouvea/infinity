@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
-import { query, where, getDocs, addDoc, orderBy, deleteDoc, updateDoc, increment } from 'firebase/firestore';
+import { query, where, getDocs, addDoc, orderBy, deleteDoc, updateDoc, increment, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
-import { Event, EventVote } from '@/types';
+import { Event, EventVote, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { Calendar, Plus, Trash2, Check, X, ArrowLeft, Users, Coins, Edit, ImageIcon, Upload } from 'lucide-react';
@@ -150,6 +150,48 @@ function EventsContent() {
           active: true,
           bannerUrl: null,
         });
+
+        try {
+          const membersSnap = await getDocs(query(
+            clanCol(clan.slug, COLS.users),
+            where('role', 'in', ['member', 'admin', 'super_admin'])
+          ));
+          const members = membersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+
+          const when = eventDate.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          const batchSize = 450;
+          let batch = writeBatch(db);
+          let count = 0;
+
+          for (const m of members) {
+            if (count > 0 && count % batchSize === 0) {
+              await batch.commit();
+              batch = writeBatch(db);
+            }
+
+            const notifId = crypto.randomUUID();
+            batch.set(clanDoc(clan.slug, COLS.notifications, notifId), {
+              userId: m.id,
+              type: 'event',
+              title: 'Novo evento criado',
+              message: `${title} — ${when}`,
+              link: `/events#${docRef.id}`,
+              read: false,
+              createdAt: new Date(),
+            });
+            count += 1;
+          }
+          if (count > 0) await batch.commit();
+        } catch (error) {
+          console.error('Erro ao criar notificações do evento:', error);
+        }
 
         // Upload do banner após criar o evento (precisa do ID)
         if (bannerFile) {
@@ -517,7 +559,7 @@ function EventsContent() {
               const isBeforeEvent = now < eventStart;
 
               return (
-                <div key={event.id} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+                <div id={event.id} key={event.id} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
                   {/* Banner do evento */}
                   {event.bannerUrl && (
                     <div className="relative w-full h-48 overflow-hidden">
