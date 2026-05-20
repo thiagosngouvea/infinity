@@ -8,12 +8,16 @@ import {
   query,
   getDocs,
   addDoc,
+  getDoc,
   updateDoc,
+  increment,
+  writeBatch,
   orderBy,
   where,
 } from 'firebase/firestore';
-import { TWSession } from '@/types';
+import { TWSession, TWVote, TWRosterEntry, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
+import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -27,6 +31,7 @@ import {
   X,
   Archive,
   Coins,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
@@ -42,6 +47,7 @@ function AdminTWContent() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [tab, setTab] = useState<'active' | 'closed'>('active');
 
   // Form state
@@ -152,6 +158,142 @@ function AdminTWContent() {
       loadSessions();
     } catch (err) {
       toast.error('Erro ao encerrar TW');
+    }
+  };
+
+  const deleteSession = async (session: TWSession) => {
+    const confirmed = await confirm({
+      title: '⚠️ EXCLUIR TW',
+      message:
+        `ATENÇÃO: você está prestes a excluir a TW "${session.title}".\n\n` +
+        `Isso também irá:\n` +
+        `• Remover votos e roster desta TW\n` +
+        `• Remover os pontos concedidos por esta TW (se existirem)\n\n` +
+        `Esta ação NÃO pode ser desfeita.\n\n` +
+        `Para confirmar, digite EXCLUIR.`,
+      confirmText: 'Sim, Excluir',
+      cancelText: 'Cancelar',
+      type: 'danger',
+      requiresTextConfirmation: true,
+      confirmationText: 'EXCLUIR',
+    });
+    if (!confirmed) return;
+
+    setDeletingId(session.id);
+    try {
+      const sessionDoc = await getDoc(clanDoc(clan.slug, COLS.twSessions, session.id));
+      if (!sessionDoc.exists()) {
+        toast.error('TW não encontrada');
+        return;
+      }
+
+      const sessionData = {
+        id: sessionDoc.id,
+        ...sessionDoc.data(),
+      } as TWSession;
+      const pointsForVoting = Number(sessionData.pointsForVoting ?? 0);
+      const pointsForRoster = Number(sessionData.pointsForRoster ?? 0);
+
+      const [votesSnap, rosterSnap] = await Promise.all([
+        getDocs(query(clanCol(clan.slug, COLS.twVotes), where('twId', '==', session.id))),
+        getDocs(query(clanCol(clan.slug, COLS.twRoster), where('twId', '==', session.id))),
+      ]);
+
+      const votes = votesSnap.docs.map(d => ({ id: d.id, ...d.data() } as TWVote));
+      const roster = rosterSnap.docs.map(d => ({ id: d.id, ...d.data() } as TWRosterEntry));
+
+      const pointsDeltaByUser = new Map<string, number>();
+
+      if (pointsForVoting > 0) {
+        votes.forEach(v => {
+          if (v.votingPointsAwarded) {
+            pointsDeltaByUser.set(v.userId, (pointsDeltaByUser.get(v.userId) ?? 0) - pointsForVoting);
+          }
+        });
+      }
+
+      if (pointsForRoster > 0) {
+        roster.forEach(r => {
+          if (r.rosterPointsAwarded) {
+            pointsDeltaByUser.set(r.userId, (pointsDeltaByUser.get(r.userId) ?? 0) - pointsForRoster);
+          }
+        });
+      }
+
+      if (pointsDeltaByUser.size > 0) {
+        const affectedIds = Array.from(pointsDeltaByUser.keys());
+        const affectedDocs = await Promise.all(
+          affectedIds.map(async (userId) => {
+            const snap = await getDoc(clanDoc(clan.slug, COLS.users, userId));
+            return { userId, snap };
+          })
+        );
+
+        const invalid: string[] = [];
+        affectedDocs.forEach(({ userId, snap }) => {
+          if (!snap.exists()) return;
+          const data = snap.data() as User;
+          const delta = pointsDeltaByUser.get(userId) ?? 0;
+          const afterPoints = Number(data.pontos ?? 0) + delta;
+          const afterTotal = Number(data.totalPointsEarned ?? 0) + delta;
+          if (afterPoints < 0 || afterTotal < 0) {
+            invalid.push(data.nick || userId);
+          }
+        });
+
+        if (invalid.length > 0) {
+          toast.error(
+            `Não foi possível excluir: ${invalid.length} jogador(es) ficariam com saldo negativo. Ajuste os pontos antes.`
+          );
+          return;
+        }
+      }
+
+      const ops: Array<() => void> = [];
+
+      pointsDeltaByUser.forEach((delta, userId) => {
+        if (delta === 0) return;
+        ops.push(() => {
+          const userRef = clanDoc(clan.slug, COLS.users, userId);
+          batch.update(userRef, {
+            pontos: increment(delta),
+            totalPointsEarned: increment(delta),
+          });
+        });
+      });
+
+      votes.forEach(v => {
+        ops.push(() => batch.delete(clanDoc(clan.slug, COLS.twVotes, v.id)));
+      });
+
+      roster.forEach(r => {
+        ops.push(() => batch.delete(clanDoc(clan.slug, COLS.twRoster, r.id)));
+      });
+
+      ops.push(() => batch.delete(clanDoc(clan.slug, COLS.twSessions, session.id)));
+
+      let batch = writeBatch(db);
+      let count = 0;
+      const commit = async () => {
+        await batch.commit();
+        batch = writeBatch(db);
+        count = 0;
+      };
+
+      for (const op of ops) {
+        if (count >= 450) await commit();
+        op();
+        count += 1;
+      }
+      if (count > 0) await commit();
+
+      toast.success('TW excluída com sucesso');
+      await loadSessions();
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao excluir TW');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -429,6 +571,14 @@ function AdminTWContent() {
                           >
                             <Archive className="h-4 w-4" />
                           </button>
+                          <button
+                            onClick={() => deleteSession(session)}
+                            disabled={deletingId === session.id}
+                            title="Excluir TW"
+                            className="p-2 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 disabled:opacity-60 transition"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                           <Link
                             href={`/admin/tw/${session.id}`}
                             className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg transition"
@@ -440,13 +590,23 @@ function AdminTWContent() {
                         </>
                       )}
                       {session.closed && (
-                        <Link
-                          href={`/admin/tw/${session.id}`}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
-                        >
-                          Ver Roster
-                          <ChevronRight className="h-4 w-4" />
-                        </Link>
+                        <>
+                          <button
+                            onClick={() => deleteSession(session)}
+                            disabled={deletingId === session.id}
+                            title="Excluir TW"
+                            className="p-2 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 disabled:opacity-60 transition"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                          <Link
+                            href={`/admin/tw/${session.id}`}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
+                          >
+                            Ver Roster
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </>
                       )}
                     </div>
                   </div>
