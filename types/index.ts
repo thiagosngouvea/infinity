@@ -105,6 +105,33 @@ export interface Attendance {
   createdAt: Date;
 }
 
+export type PointsAuditSource =
+  | 'manual'
+  | 'attendance'
+  | 'event_vote'
+  | 'event_attendance'
+  | 'tw_vote'
+  | 'tw_roster'
+  | 'redemption';
+
+export interface PointsAuditEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  source: PointsAuditSource;
+  sourceId?: string;
+  deltaPoints: number;
+  deltaTotalPointsEarned: number;
+  beforePoints: number;
+  afterPoints: number;
+  beforeTotalPointsEarned: number;
+  afterTotalPointsEarned: number;
+  reason?: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date;
+}
+
 export interface Raffle {
   id: string;
   title: string;
@@ -122,9 +149,10 @@ export interface Raffle {
 export interface Notification {
   id: string;
   userId: string;
-  type: 'raffle_win' | 'approval' | 'event' | 'general';
+  type: 'raffle_win' | 'approval' | 'event' | 'tw' | 'general';
   title: string;
   message: string;
+  link?: string;
   read: boolean;
   createdAt: Date;
 }
@@ -193,4 +221,41 @@ export interface Account0800 {
   accounts: Account0800Entry[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+// ─── Territory War (TW) ───────────────────────────────────────────────────────
+
+export interface TWSession {
+  id: string;
+  title: string;               // Ex: "TW - Semana 20"
+  date: Date;
+  description?: string;
+  active: boolean;             // TW disponível para votos/roster
+  closed: boolean;             // TW encerrada (vira histórico)
+  pointsForVoting: number;     // Pontos por confirmar presença
+  pointsForRoster: number;     // Pontos por ser selecionado para o roster
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface TWVote {
+  id: string;
+  twId: string;
+  userId: string;
+  userName: string;
+  userClass: PlayerClass;
+  canParticipate: boolean;
+  votingPointsAwarded?: boolean; // Se já recebeu pontos por confirmar
+  createdAt: Date;
+}
+
+export interface TWRosterEntry {
+  id: string;
+  twId: string;
+  userId: string;
+  userName: string;
+  userClass: PlayerClass;
+  selectedBy: string;          // Admin que selecionou
+  selectedAt: Date;
+  rosterPointsAwarded?: boolean; // Se já recebeu pontos por estar no roster
 }

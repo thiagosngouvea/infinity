@@ -104,12 +104,44 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
+    match /clans/{clanSlug}/pointsAudit/{auditId} {
+      allow read, write: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     match /clans/{clanSlug}/tutorials/{tutorialId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
       allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
+    // ─── Territory War ────────────────────────────────────────────────────────
+
+    // Sessões de TW — leitura por membros, escrita apenas admin
+    match /clans/{clanSlug}/twSessions/{twId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
+    // Votos de TW — membros criam/deletam o próprio voto, admin pode tudo
+    match /clans/{clanSlug}/twVotes/{voteId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow update: if isSuperAdmin() ||
+                       (isClanMember(clanSlug) &&
+                        (request.auth.uid == resource.data.userId || isClanAdmin(clanSlug)));
+      allow delete: if isSuperAdmin() ||
+                       (isClanMember(clanSlug) && request.auth.uid == resource.data.userId) ||
+                       isClanAdmin(clanSlug);
+    }
+
+    // Roster de TW — somente admin gerencia; membros só leem
+    match /clans/{clanSlug}/twRoster/{entryId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create, update: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     // Contas 0800 — acesso exclusivo para admins e super_admins
+
     match /clans/{clanSlug}/accounts0800/{docId} {
       allow read, write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }

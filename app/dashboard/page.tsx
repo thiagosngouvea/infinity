@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { query, where, getDocs, orderBy, limit, updateDoc } from 'firebase/firestore';
 import { Event, Notification } from '@/types';
-import { clanCol, COLS } from '@/lib/paths';
-import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound, UserCircle } from 'lucide-react';
+import { clanCol, clanDoc, COLS } from '@/lib/paths';
+import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound, UserCircle, Sword } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
@@ -34,14 +34,15 @@ function DashboardContent() {
 
     try {
       // Carregar eventos ativos
+      const now = new Date();
       const eventsQuery = query(
         clanCol(clan.slug, COLS.events),
         where('active', '==', true),
+        where('date', '>=', now),
         orderBy('date', 'asc'),
         limit(5)
       );
       const eventsSnapshot = await getDocs(eventsQuery);
-      const now = new Date();
       const events = eventsSnapshot.docs
         .map(doc => ({
           id: doc.id,
@@ -70,6 +71,19 @@ function DashboardContent() {
       console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDashboardNotificationClick = async (notif: Notification) => {
+    try {
+      await updateDoc(clanDoc(clan.slug, COLS.notifications, notif.id), { read: true });
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+    } finally {
+      if (notif.link) {
+        router.push(notif.link);
+      }
+      loadData();
     }
   };
 
@@ -153,6 +167,15 @@ function DashboardContent() {
             <p className="text-blue-200 text-sm">Votar em eventos</p>
           </Link>
 
+          <Link
+            href="/tw"
+            className="bg-gradient-to-br from-rose-700 to-red-900 rounded-lg p-6 hover:from-rose-800 hover:to-red-950 transition cursor-pointer"
+          >
+            <Sword className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">TW</h3>
+            <p className="text-rose-200 text-sm">Confirmar presença na TW</p>
+          </Link>
+
           {attendanceEnabled && (
             <Link
               href="/attendance"
@@ -163,6 +186,8 @@ function DashboardContent() {
               <p className="text-green-200 text-sm">Marcar presença</p>
             </Link>
           )}
+
+
 
           <Link
             href="/raffles"
@@ -233,7 +258,11 @@ function DashboardContent() {
             ) : (
               <div className="space-y-3">
                 {upcomingEvents.map((event) => (
-                  <div key={event.id} className="bg-gray-700 rounded-lg p-4">
+                  <Link
+                    key={event.id}
+                    href={`/events#${event.id}`}
+                    className="block bg-gray-700 hover:bg-gray-650 rounded-lg p-4 transition"
+                  >
                     <h3 className="font-semibold text-white mb-1">{event.title}</h3>
                     <p className="text-sm text-gray-400 mb-2">{event.description}</p>
                     <div className="flex items-center justify-between">
@@ -244,7 +273,7 @@ function DashboardContent() {
                         {event.type}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -266,10 +295,14 @@ function DashboardContent() {
             ) : (
               <div className="space-y-3">
                 {notifications.map((notif) => (
-                  <div key={notif.id} className="bg-gray-700 rounded-lg p-4">
+                  <button
+                    key={notif.id}
+                    onClick={() => handleDashboardNotificationClick(notif)}
+                    className="w-full text-left bg-gray-700 hover:bg-gray-650 rounded-lg p-4 transition"
+                  >
                     <h3 className="font-semibold text-white mb-1">{notif.title}</h3>
                     <p className="text-sm text-gray-400">{notif.message}</p>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
