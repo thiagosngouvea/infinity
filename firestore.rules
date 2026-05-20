@@ -104,6 +104,10 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
+    match /clans/{clanSlug}/pointsAudit/{auditId} {
+      allow read, write: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     match /clans/{clanSlug}/tutorials/{tutorialId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
       allow write: if isSuperAdmin() || isClanAdmin(clanSlug);

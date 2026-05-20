@@ -6,7 +6,7 @@ import { User, Notification } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { Check, X, Users, Shield, Palette, Sword } from 'lucide-react';
+import { Check, X, Users, Shield, Palette, Sword, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
@@ -147,6 +147,15 @@ function AdminContent() {
             <Sword className="h-10 w-10 text-white mb-3" />
             <h3 className="text-xl font-bold text-white mb-1">Territory War</h3>
             <p className="text-rose-200 text-sm">Criar TW e gerenciar roster</p>
+          </Link>
+
+          <Link
+            href="/admin/points"
+            className="bg-gradient-to-br from-amber-600 to-amber-800 rounded-lg p-6 hover:from-amber-700 hover:to-amber-900 transition cursor-pointer"
+          >
+            <Coins className="h-10 w-10 text-white mb-3" />
+            <h3 className="text-xl font-bold text-white mb-1">Gerenciar Pontos</h3>
+            <p className="text-amber-200 text-sm">Ajustar pontos e ver auditoria</p>
           </Link>
 
 

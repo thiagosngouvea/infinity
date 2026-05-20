@@ -105,6 +105,33 @@ export interface Attendance {
   createdAt: Date;
 }
 
+export type PointsAuditSource =
+  | 'manual'
+  | 'attendance'
+  | 'event_vote'
+  | 'event_attendance'
+  | 'tw_vote'
+  | 'tw_roster'
+  | 'redemption';
+
+export interface PointsAuditEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  source: PointsAuditSource;
+  sourceId?: string;
+  deltaPoints: number;
+  deltaTotalPointsEarned: number;
+  beforePoints: number;
+  afterPoints: number;
+  beforeTotalPointsEarned: number;
+  afterTotalPointsEarned: number;
+  reason?: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date;
+}
+
 export interface Raffle {
   id: string;
   title: string;
