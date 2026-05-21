@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase';
 import { TWSession, TWVote, TWRosterEntry, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Sword, Users, Plus, X, Check, Search, UserPlus, Coins, Archive } from 'lucide-react';
+import { ArrowLeft, Sword, Users, Plus, X, Check, Search, UserPlus, Coins, Archive, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 import LoadingLogo from '@/components/LoadingLogo';
@@ -189,7 +189,8 @@ function AdminTWRosterContent() {
   if (!session) return null;
 
   const confirmedVotes = votes.filter(v => v.canParticipate);
-  const declinedVotes = votes.filter(v => !v.canParticipate);
+  const lendingVotes = votes.filter(v => !v.canParticipate && v.canLendAccount);
+  const declinedVotes = votes.filter(v => !v.canParticipate && !v.canLendAccount);
 
   // Breakdown por classe no roster
   const classCounts: Record<string, number> = {};
@@ -222,7 +223,7 @@ function AdminTWRosterContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
         {/* Stats cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
             <p className="text-gray-400 text-sm mb-1">Confirmaram</p>
             <p className="text-3xl font-bold text-white">{confirmedVotes.length}</p>
@@ -232,6 +233,14 @@ function AdminTWRosterContent() {
             <p className="text-gray-400 text-sm mb-1">No Roster</p>
             <p className="text-3xl font-bold text-rose-400">{roster.length}</p>
             <p className="text-gray-500 text-xs mt-1">selecionados</p>
+          </div>
+          <div className="bg-purple-900/20 rounded-xl p-5 border border-purple-700/40">
+            <p className="text-purple-300 text-sm mb-1 flex items-center gap-1">
+              <KeyRound className="h-3.5 w-3.5 shrink-0" />
+              Emprestam Conta
+            </p>
+            <p className="text-3xl font-bold text-purple-300">{lendingVotes.length}</p>
+            <p className="text-purple-500 text-xs mt-1">contas disponíveis</p>
           </div>
           <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
             <p className="text-gray-400 text-sm mb-1">Não podem</p>
@@ -305,6 +314,47 @@ function AdminTWRosterContent() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {confirmedVotes.map(vote => {
+                  const inRoster = rosterUserIds.has(vote.userId);
+                  return (
+                    <div key={vote.id} className={`flex items-center justify-between rounded-lg px-4 py-3 border transition ${
+                      inRoster ? 'bg-rose-900/20 border-rose-700/40' : 'bg-gray-700/60 border-gray-600'
+                    }`}>
+                      <div>
+                        <p className="text-white font-semibold">{vote.userName}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${CLASS_COLORS[vote.userClass] || 'bg-gray-600 text-gray-300 border-gray-500'}`}>
+                          {vote.userClass}
+                        </span>
+                      </div>
+                      {inRoster ? (
+                        <span className="flex items-center gap-1 text-xs text-rose-300 font-semibold">
+                          <Sword className="h-3 w-3" /> No Roster
+                        </span>
+                      ) : (
+                        <button onClick={() => addVoterToRoster(vote)} disabled={processing}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-gray-600 text-white text-xs font-semibold rounded-lg transition">
+                          <Plus className="h-3 w-3" /> Selecionar
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Disponibilizaram Conta para Empréstimo */}
+        {!session.closed && (
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-purple-400" />
+              Disponibilizaram Conta para Empréstimo ({lendingVotes.length})
+            </h2>
+            {lendingVotes.length === 0 ? (
+              <p className="text-gray-500 text-center py-6">Nenhuma conta disponibilizada para empréstimo ainda</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {lendingVotes.map(vote => {
                   const inRoster = rosterUserIds.has(vote.userId);
                   return (
                     <div key={vote.id} className={`flex items-center justify-between rounded-lg px-4 py-3 border transition ${

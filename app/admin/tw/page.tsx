@@ -57,6 +57,7 @@ function AdminTWContent() {
   const [time, setTime] = useState('');
   const [pointsForVoting, setPointsForVoting] = useState(5);
   const [pointsForRoster, setPointsForRoster] = useState(20);
+  const [pointsForLending, setPointsForLending] = useState(10);
 
   useEffect(() => {
     loadSessions();
@@ -105,6 +106,7 @@ function AdminTWContent() {
         closed: false,
         pointsForVoting: Number(pointsForVoting),
         pointsForRoster: Number(pointsForRoster),
+        pointsForLending: Number(pointsForLending),
         createdBy: userData.id,
         createdAt: new Date(),
       });
@@ -171,6 +173,7 @@ function AdminTWContent() {
     setTime('');
     setPointsForVoting(5);
     setPointsForRoster(20);
+    setPointsForLending(10);
   };
 
   const toggleActive = async (session: TWSession) => {
@@ -238,6 +241,7 @@ function AdminTWContent() {
       } as TWSession;
       const pointsForVoting = Number(sessionData.pointsForVoting ?? 0);
       const pointsForRoster = Number(sessionData.pointsForRoster ?? 0);
+      const pointsForLending = Number(sessionData.pointsForLending ?? 0);
 
       const [votesSnap, rosterSnap] = await Promise.all([
         getDocs(query(clanCol(clan.slug, COLS.twVotes), where('twId', '==', session.id))),
@@ -253,6 +257,14 @@ function AdminTWContent() {
         votes.forEach(v => {
           if (v.votingPointsAwarded) {
             pointsDeltaByUser.set(v.userId, (pointsDeltaByUser.get(v.userId) ?? 0) - pointsForVoting);
+          }
+        });
+      }
+
+      if (pointsForLending > 0) {
+        votes.forEach(v => {
+          if (v.lendingPointsAwarded) {
+            pointsDeltaByUser.set(v.userId, (pointsDeltaByUser.get(v.userId) ?? 0) - pointsForLending);
           }
         });
       }
@@ -444,7 +456,7 @@ function AdminTWContent() {
                   <Coins className="h-4 w-4" />
                   Sistema de Pontos
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1.5">
                       Pontos por confirmar presença
@@ -470,6 +482,19 @@ function AdminTWContent() {
                       className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
                     />
                     <p className="text-xs text-gray-500 mt-1">Pontos ao ser selecionado pelo admin</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                      Pontos por emprestar conta
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={pointsForLending}
+                      onChange={e => setPointsForLending(Number(e.target.value))}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Pontos ao clicar "Emprestar"</p>
                   </div>
                 </div>
               </div>
@@ -582,7 +607,7 @@ function AdminTWContent() {
                         <p className="text-gray-500 text-sm mb-2">{session.description}</p>
                       )}
 
-                      <div className="flex gap-4 text-xs text-gray-500">
+                      <div className="flex gap-4 text-xs text-gray-500 flex-wrap">
                         <span className="flex items-center gap-1">
                           <Coins className="h-3 w-3 text-yellow-500" />
                           {session.pointsForVoting} pts por confirmar
@@ -591,6 +616,12 @@ function AdminTWContent() {
                           <Coins className="h-3 w-3 text-amber-500" />
                           {session.pointsForRoster} pts no roster
                         </span>
+                        {session.pointsForLending !== undefined && session.pointsForLending > 0 && (
+                          <span className="flex items-center gap-1 text-purple-400">
+                            <Coins className="h-3 w-3" />
+                            {session.pointsForLending} pts por emprestar
+                          </span>
+                        )}
                       </div>
                     </div>
 
