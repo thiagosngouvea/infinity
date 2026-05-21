@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { query, where, getDocs, orderBy, limit, updateDoc } from 'firebase/firestore';
-import { Event, Notification } from '@/types';
+import { Event, Notification, TWSession } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { Shield, Trophy, Calendar, Gift, Bell, LogOut, Users, CheckCircle, ShoppingBag, BookOpen, KeyRound, UserCircle, Sword } from 'lucide-react';
 import Link from 'next/link';
@@ -18,6 +18,7 @@ function DashboardContent() {
   const { clan } = useClan();
   const router = useRouter();
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [upcomingTWs, setUpcomingTWs] = useState<TWSession[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +52,24 @@ function DashboardContent() {
         } as Event))
         .filter(event => event.date >= now);
       setUpcomingEvents(events);
+
+      const twQuery = query(
+        clanCol(clan.slug, COLS.twSessions),
+        where('closed', '==', false),
+        where('date', '>=', now),
+        orderBy('date', 'asc'),
+        limit(5)
+      );
+      const twSnapshot = await getDocs(twQuery);
+      const tws = twSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().date.toDate(),
+          createdAt: doc.data().createdAt.toDate(),
+        } as TWSession))
+        .filter(tw => tw.date >= now);
+      setUpcomingTWs(tws);
 
       // Carregar notificações não lidas
       const notifQuery = query(
@@ -251,30 +270,55 @@ function DashboardContent() {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
               <Calendar className="h-6 w-6" />
-              Próximos Eventos
+              Próximos
             </h2>
-            {upcomingEvents.length === 0 ? (
-              <p className="text-gray-400">Nenhum evento ativo no momento</p>
+            {upcomingEvents.length === 0 && upcomingTWs.length === 0 ? (
+              <p className="text-gray-400">Nenhum evento ou TW futura no momento</p>
             ) : (
               <div className="space-y-3">
-                {upcomingEvents.map((event) => (
-                  <Link
-                    key={event.id}
-                    href={`/events#${event.id}`}
-                    className="block bg-gray-700 hover:bg-gray-650 rounded-lg p-4 transition"
-                  >
-                    <h3 className="font-semibold text-white mb-1">{event.title}</h3>
-                    <p className="text-sm text-gray-400 mb-2">{event.description}</p>
-                    <div className="flex items-center justify-between">
+                {[...upcomingEvents.map(e => ({
+                  key: `event:${e.id}`,
+                  href: `/events#${e.id}`,
+                  title: e.title,
+                  description: e.description,
+                  date: e.date,
+                  badge: e.type,
+                  kind: 'event' as const,
+                })), ...upcomingTWs.map(tw => ({
+                  key: `tw:${tw.id}`,
+                  href: `/tw#${tw.id}`,
+                  title: tw.title,
+                  description: tw.description || '',
+                  date: tw.date,
+                  badge: 'TW',
+                  kind: 'tw' as const,
+                }))]
+                  .sort((a, b) => a.date.getTime() - b.date.getTime())
+                  .slice(0, 6)
+                  .map((item) => (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      className="block bg-gray-700 hover:bg-gray-650 rounded-lg p-4 transition"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-white mb-1 truncate">{item.title}</h3>
+                          {item.description ? (
+                            <p className="text-sm text-gray-400 mb-2 line-clamp-2">{item.description}</p>
+                          ) : (
+                            <div className="mb-2" />
+                          )}
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-full text-white whitespace-nowrap ${item.kind === 'tw' ? 'bg-rose-700' : 'bg-red-600'}`}>
+                          {item.badge}
+                        </span>
+                      </div>
                       <span className="text-xs text-gray-500">
-                        {event.date.toLocaleDateString('pt-BR')} às {event.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {item.date.toLocaleDateString('pt-BR')} às {item.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <span className="text-xs px-2 py-1 bg-red-600 rounded-full text-white">
-                        {event.type}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
               </div>
             )}
           </div>

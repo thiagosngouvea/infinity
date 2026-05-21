@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import {
   ArrowLeft, Sword, Check, X, Users, Coins, Clock,
   CalendarDays, Trophy, Plus, Archive, Edit, ChevronDown, ChevronUp,
+  KeyRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
@@ -54,6 +55,7 @@ function TWContent() {
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState<string | null>(null);
   const [tab, setTab] = useState<'active' | 'history'>('active');
+  const [editingVoteId, setEditingVoteId] = useState<string | null>(null);
 
   // Admin: create/edit form
   const [showForm, setShowForm] = useState(false);
@@ -65,11 +67,12 @@ function TWContent() {
   const [formTime, setFormTime] = useState('');
   const [formPtsVote, setFormPtsVote] = useState(5);
   const [formPtsRoster, setFormPtsRoster] = useState(20);
+  const [formPtsLending, setFormPtsLending] = useState(10);
 
   const resetForm = () => {
     setEditingSession(null);
     setFormTitle(''); setFormDesc(''); setFormDate(''); setFormTime('');
-    setFormPtsVote(5); setFormPtsRoster(20);
+    setFormPtsVote(5); setFormPtsRoster(20); setFormPtsLending(10);
   };
 
   const openCreate = () => { resetForm(); setShowForm(true); };
@@ -83,6 +86,7 @@ function TWContent() {
     setFormTime(d.toTimeString().slice(0, 5));
     setFormPtsVote(s.pointsForVoting);
     setFormPtsRoster(s.pointsForRoster);
+    setFormPtsLending(s.pointsForLending ?? 0);
     setShowForm(true);
   };
 
@@ -96,6 +100,7 @@ function TWContent() {
         await updateDoc(clanDoc(clan.slug, COLS.twSessions, editingSession.id), {
           title: formTitle, description: formDesc, date,
           pointsForVoting: Number(formPtsVote), pointsForRoster: Number(formPtsRoster),
+          pointsForLending: Number(formPtsLending),
         });
         toast.success('TW atualizada!');
       } else {
@@ -103,6 +108,7 @@ function TWContent() {
           title: formTitle, description: formDesc, date,
           active: true, closed: false,
           pointsForVoting: Number(formPtsVote), pointsForRoster: Number(formPtsRoster),
+          pointsForLending: Number(formPtsLending),
           createdBy: userData.id, createdAt: new Date(),
         });
 
@@ -248,7 +254,7 @@ function TWContent() {
     }
   };
 
-  const vote = async (twId: string, canParticipate: boolean) => {
+  const vote = async (twId: string, canParticipate: boolean, canLendAccount = false) => {
     if (!userData || voting) return;
 
     const session = activeSessions.find(s => s.id === twId);
@@ -258,11 +264,14 @@ function TWContent() {
     try {
       const existing = myVotes[twId];
       const isFirstVote = !existing;
+      setEditingVoteId(null);
 
       // Remover voto anterior se existir
       if (existing) {
         await deleteDoc(clanDoc(clan.slug, COLS.twVotes, existing.id));
       }
+
+      const ptsLending = session.pointsForLending ?? 0;
 
       // Criar novo voto
       await addDoc(clanCol(clan.slug, COLS.twVotes), {
@@ -271,11 +280,13 @@ function TWContent() {
         userName: userData.nick,
         userClass: userData.classe,
         canParticipate,
+        canLendAccount,
         votingPointsAwarded: isFirstVote && canParticipate && session.pointsForVoting > 0,
+        lendingPointsAwarded: isFirstVote && canLendAccount && ptsLending > 0,
         createdAt: new Date(),
       });
 
-      // Dar pontos se for primeira confirmação positiva
+      // Dar pontos se for primeira confirmação positiva ou empréstimo de conta
       if (isFirstVote && canParticipate && session.pointsForVoting > 0) {
         await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
           pontos: increment(session.pointsForVoting),
@@ -283,8 +294,17 @@ function TWContent() {
         });
         toast.success(`Presença confirmada! +${session.pointsForVoting} pontos`);
         await refreshUserData();
+      } else if (isFirstVote && canLendAccount && ptsLending > 0) {
+        await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
+          pontos: increment(ptsLending),
+          totalPointsEarned: increment(ptsLending),
+        });
+        toast.success(`Conta disponibilizada! +${ptsLending} pontos extras`);
+        await refreshUserData();
       } else if (canParticipate) {
         toast.success('Presença confirmada!');
+      } else if (canLendAccount) {
+        toast.success('Conta disponibilizada para empréstimo!');
       } else {
         toast.success('Voto registrado');
       }
@@ -362,7 +382,7 @@ function TWContent() {
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-rose-500" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Data</label>
                   <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} required
@@ -381,6 +401,11 @@ function TWContent() {
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Pts roster</label>
                   <input type="number" min="0" value={formPtsRoster} onChange={e => setFormPtsRoster(Number(e.target.value))}
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-rose-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Pts emprestar</label>
+                  <input type="number" min="0" value={formPtsLending} onChange={e => setFormPtsLending(Number(e.target.value))}
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-rose-500" />
                 </div>
               </div>
@@ -530,7 +555,7 @@ function TWContent() {
                       </div>
 
                       {/* Points */}
-                      <div className="px-6 py-3 flex gap-4 text-sm border-b border-gray-700 bg-gray-800/50">
+                      <div className="px-6 py-3 flex flex-wrap gap-4 text-sm border-b border-gray-700 bg-gray-800/50">
                         <span className="flex items-center gap-1.5 text-yellow-300">
                           <Coins className="h-4 w-4" />
                           {session.pointsForVoting} pts por confirmar
@@ -539,53 +564,82 @@ function TWContent() {
                           <Coins className="h-4 w-4" />
                           {session.pointsForRoster} pts no roster
                         </span>
+                        {session.pointsForLending !== undefined && session.pointsForLending > 0 && (
+                          <span className="flex items-center gap-1.5 text-purple-300">
+                            <Coins className="h-4 w-4" />
+                            {session.pointsForLending} pts por emprestar conta
+                          </span>
+                        )}
                       </div>
 
                       {/* Vote Area */}
                       <div className="px-6 py-5">
-                        {myVote ? (
-                          <div className={`rounded-lg p-4 border-2 ${
+                        {myVote && editingVoteId !== session.id ? (
+                          <div className={`rounded-lg p-4 border-2 transition-all ${
                             myVote.canParticipate
-                              ? 'bg-green-900/20 border-green-600'
-                              : 'bg-red-900/20 border-red-700'
+                              ? 'bg-green-950/20 border-green-600/60'
+                              : myVote.canLendAccount
+                                ? 'bg-purple-950/20 border-purple-600/60'
+                                : 'bg-red-950/20 border-red-900/60'
                           }`}>
                             <div className="flex items-center justify-between">
-                              <p className="text-white font-semibold flex items-center gap-2">
+                              <div className="text-white font-semibold flex items-center gap-2 text-sm sm:text-base">
                                 {myVote.canParticipate ? (
                                   <>
-                                    <Check className="h-5 w-5 text-green-400" />
-                                    Você confirmou presença
+                                    <Check className="h-5 w-5 text-green-400 shrink-0" />
+                                    <span>Você confirmou presença</span>
+                                  </>
+                                ) : myVote.canLendAccount ? (
+                                  <>
+                                    <KeyRound className="h-5 w-5 text-purple-400 shrink-0" />
+                                    <span>Você disponibilizou sua conta para empréstimo</span>
                                   </>
                                 ) : (
                                   <>
-                                    <X className="h-5 w-5 text-red-400" />
-                                    Você não pode participar
+                                    <X className="h-5 w-5 text-red-400 shrink-0" />
+                                    <span>Você não pode participar</span>
                                   </>
                                 )}
-                              </p>
+                              </div>
                               <button
-                                onClick={() => vote(session.id, !myVote.canParticipate)}
+                                onClick={() => setEditingVoteId(session.id)}
                                 disabled={isVoting}
-                                className="text-xs text-gray-400 hover:text-white transition underline underline-offset-2 disabled:opacity-50"
+                                className="text-xs text-rose-400 hover:text-rose-300 transition underline underline-offset-2 disabled:opacity-50 font-semibold ml-2"
                               >
                                 Alterar
                               </button>
                             </div>
                             {myVote.votingPointsAwarded && (
                               <p className="text-xs text-yellow-300 mt-2 flex items-center gap-1">
-                                <Coins className="h-3 w-3" />
-                                +{session.pointsForVoting} pontos recebidos
+                                <Coins className="h-3.5 w-3.5" />
+                                +{session.pointsForVoting} pontos de presença recebidos
+                              </p>
+                            )}
+                            {myVote.lendingPointsAwarded && (
+                              <p className="text-xs text-purple-300 mt-2 flex items-center gap-1">
+                                <Coins className="h-3.5 w-3.5" />
+                                +{session.pointsForLending} pontos de empréstimo recebidos
                               </p>
                             )}
                           </div>
                         ) : (
                           <div>
-                            <p className="text-gray-400 text-sm mb-3">Você vai participar desta TW?</p>
-                            <div className="flex gap-3">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-gray-300 text-sm font-medium">Você vai participar desta TW?</p>
+                              {myVote && editingVoteId === session.id && (
+                                <button
+                                  onClick={() => setEditingVoteId(null)}
+                                  className="text-xs text-gray-500 hover:text-gray-300 transition"
+                                >
+                                  Cancelar
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3">
                               <button
-                                onClick={() => vote(session.id, true)}
+                                onClick={() => vote(session.id, true, false)}
                                 disabled={isVoting}
-                                className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-3 rounded-lg transition"
+                                className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md"
                               >
                                 {isVoting ? (
                                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -593,16 +647,24 @@ function TWContent() {
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                   </svg>
                                 ) : (
-                                  <Check className="h-5 w-5" />
+                                  <Check className="h-5 w-5 shrink-0" />
                                 )}
                                 Vou!
                               </button>
                               <button
-                                onClick={() => vote(session.id, false)}
+                                onClick={() => vote(session.id, false, true)}
                                 disabled={isVoting}
-                                className="flex-1 flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-white font-bold py-3 rounded-lg transition border border-gray-600"
+                                className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md"
                               >
-                                <X className="h-5 w-5" />
+                                <KeyRound className="h-5 w-5 shrink-0" />
+                                Emprestar Conta
+                              </button>
+                              <button
+                                onClick={() => vote(session.id, false, false)}
+                                disabled={isVoting}
+                                className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-750 disabled:bg-gray-700 text-gray-300 hover:text-white font-bold py-3 px-4 rounded-lg transition border border-gray-700"
+                              >
+                                <X className="h-5 w-5 shrink-0" />
                                 Não posso
                               </button>
                             </div>

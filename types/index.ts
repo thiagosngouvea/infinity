@@ -234,6 +234,7 @@ export interface TWSession {
   closed: boolean;             // TW encerrada (vira histórico)
   pointsForVoting: number;     // Pontos por confirmar presença
   pointsForRoster: number;     // Pontos por ser selecionado para o roster
+  pointsForLending?: number;   // Pontos por disponibilizar conta para empréstimo
   createdBy: string;
   createdAt: Date;
 }
@@ -245,7 +246,9 @@ export interface TWVote {
   userName: string;
   userClass: PlayerClass;
   canParticipate: boolean;
+  canLendAccount?: boolean;     // Se pode emprestar a conta
   votingPointsAwarded?: boolean; // Se já recebeu pontos por confirmar
+  lendingPointsAwarded?: boolean; // Se já recebeu pontos por emprestar a conta
   createdAt: Date;
 }
 
