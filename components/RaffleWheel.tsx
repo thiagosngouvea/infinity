@@ -10,6 +10,7 @@ interface RaffleWheelProps {
   participantNames: { [key: string]: string }; // Map de ID -> Nome
   onComplete: (winnerId: string) => void;
   prize: string;
+  winnerId?: string; // Vencedor pré-determinado para sincronização real-time
 }
 
 export default function RaffleWheel({
@@ -17,7 +18,8 @@ export default function RaffleWheel({
   participants,
   participantNames,
   onComplete,
-  prize
+  prize,
+  winnerId
 }: RaffleWheelProps) {
   const [spinning, setSpinning] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -63,8 +65,14 @@ export default function RaffleWheel({
     setSpinning(true);
     setWinner(null);
     
-    // Escolher vencedor antecipadamente
-    const winnerIndex = Math.floor(Math.random() * participants.length);
+    // Usar vencedor pré-determinado ou escolher aleatoriamente se não fornecido
+    let winnerIndex = -1;
+    if (winnerId && participants.includes(winnerId)) {
+      winnerIndex = participants.indexOf(winnerId);
+    } else {
+      winnerIndex = Math.floor(Math.random() * participants.length);
+    }
+    
     const totalSpins = 20 + Math.floor(Math.random() * 10); // 20-30 voltas
     let spinCount = 0;
     let currentSpeed = 50;
