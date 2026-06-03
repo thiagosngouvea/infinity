@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
-import { query, getDocs, addDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { query, getDocs, addDoc, updateDoc, arrayUnion, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Raffle } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { Gift, Plus, ArrowLeft, Users, Trophy, Clock } from 'lucide-react';
+import { Gift, Plus, ArrowLeft, Users, Trophy, Clock, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 import LoadingLogo from '@/components/LoadingLogo';
@@ -171,6 +171,26 @@ function RafflesContent() {
     }
   };
 
+  const deleteRaffle = async (raffle: Raffle) => {
+    const confirmed = await confirm({
+      title: '🗑️ Excluir Sorteio',
+      message: `Tem certeza que deseja excluir o sorteio "${raffle.title}" permanentemente? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(clanDoc(clan.slug, COLS.raffles, raffle.id));
+      toast.success('Sorteio excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir sorteio:', error);
+      toast.error('Erro ao excluir sorteio');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -311,6 +331,15 @@ function RafflesContent() {
                         <span className="font-semibold">{raffle.prize}</span>
                       </div>
                     </div>
+                    {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
+                      <button
+                        onClick={() => deleteRaffle(raffle)}
+                        className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-700/50 transition flex-shrink-0"
+                        title="Excluir Sorteio"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 text-gray-400 mb-4">

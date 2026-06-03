@@ -73,49 +73,60 @@ export default function RaffleWheel({
       winnerIndex = Math.floor(Math.random() * participants.length);
     }
     
-    const totalSpins = 20 + Math.floor(Math.random() * 10); // 20-30 voltas
+    const totalSteps = 50; // Passos totais fixos para garantir que termine rápido
+    const slowdownSteps = Math.min(15, participants.length); // Passos de desaceleração gradual
     let spinCount = 0;
-    let currentSpeed = 50;
 
-    const spinInterval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % participants.length);
+    const runStep = () => {
+      if (spinCount >= totalSteps) {
+        // Parar no vencedor
+        setCurrentIndex(winnerIndex);
+        setWinner(participants[winnerIndex]);
+        setSpinning(false);
+        setShowConfetti(true);
+        
+        // Vibração (se disponível)
+        if ('vibrate' in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+
+        // Chamar callback após animação completa (apenas uma vez)
+        setTimeout(() => {
+          if (!completed) {
+            setCompleted(true);
+            onComplete(participants[winnerIndex]);
+          }
+        }, 4000); // 4 segundos para aproveitar a vitória
+        return;
+      }
+
       spinCount++;
 
-      // Desacelerar gradualmente
-      if (spinCount > totalSpins * participants.length * 0.7) {
-        currentSpeed += 20; // Desacelera mais rápido no final
-      } else if (spinCount > totalSpins * participants.length * 0.5) {
-        currentSpeed += 10;
+      // Atualizar o index do participante
+      if (spinCount < totalSteps - slowdownSteps) {
+        // Fase rápida: flash aleatório para dar sensação de velocidade extrema
+        setCurrentIndex(Math.floor(Math.random() * participants.length));
+      } else if (spinCount === totalSteps - slowdownSteps) {
+        // Início da desaceleração: alinhar index para bater certinho com o vencedor no final
+        setCurrentIndex((winnerIndex - slowdownSteps + participants.length) % participants.length);
+      } else {
+        // Fase de desaceleração: avançar um por um de forma controlada
+        setCurrentIndex((prev) => (prev + 1) % participants.length);
       }
 
-      setSpeed(currentSpeed);
-
-      // Parar no vencedor
-      if (spinCount >= totalSpins * participants.length) {
-        clearInterval(spinInterval);
-        
-        // Ajustar para parar exatamente no vencedor
-        setTimeout(() => {
-          setCurrentIndex(winnerIndex);
-          setWinner(participants[winnerIndex]);
-          setSpinning(false);
-          setShowConfetti(true);
-          
-          // Vibração (se disponível)
-          if ('vibrate' in navigator) {
-            navigator.vibrate([200, 100, 200]);
-          }
-
-          // Chamar callback após animação completa (apenas uma vez)
-          setTimeout(() => {
-            if (!completed) {
-              setCompleted(true);
-              onComplete(participants[winnerIndex]);
-            }
-          }, 4000); // 4 segundos para aproveitar a vitória
-        }, currentSpeed);
+      // Calcular o próximo delay (desaceleração exponencial suave no final)
+      let nextDelay = 40; // 40ms base para a fase rápida
+      if (spinCount > totalSteps - slowdownSteps) {
+        const slowStep = spinCount - (totalSteps - slowdownSteps);
+        nextDelay = 40 + Math.pow(slowStep, 2) * 2; // Aumenta o tempo por passo progressivamente
       }
-    }, currentSpeed);
+
+      setSpeed(nextDelay);
+      setTimeout(runStep, nextDelay);
+    };
+
+    // Iniciar o primeiro passo da animação
+    setTimeout(runStep, 40);
   };
 
   if (!isOpen) return null;
