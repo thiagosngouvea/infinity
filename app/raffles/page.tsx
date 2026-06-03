@@ -4,14 +4,13 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
-import { query, getDocs, addDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { query, getDocs, addDoc, updateDoc, arrayUnion, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Raffle } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { Gift, Plus, ArrowLeft, Users, Trophy, Clock } from 'lucide-react';
+import { Gift, Plus, ArrowLeft, Users, Trophy, Clock, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
-import RaffleWheel from '@/components/RaffleWheel';
 import LoadingLogo from '@/components/LoadingLogo';
 
 function RafflesContent() {
@@ -27,41 +26,40 @@ function RafflesContent() {
   const [description, setDescription] = useState('');
   const [prize, setPrize] = useState('');
 
-  // Wheel state
-  const [showWheel, setShowWheel] = useState(false);
-  const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
-  const [participantNames, setParticipantNames] = useState<{ [key: string]: string }>({});
-  const [isProcessingResult, setIsProcessingResult] = useState(false);
-
   useEffect(() => {
-    loadRaffles();
-  }, []);
+    if (!clan?.slug) return;
 
-  const loadRaffles = async () => {
-    try {
-      const rafflesQuery = query(clanCol(clan.slug, COLS.raffles));
-      const snapshot = await getDocs(rafflesQuery);
-      const list = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        drawDate: doc.data().drawDate ? doc.data().drawDate.toDate() : undefined
-      } as Raffle));
-      
-      // Ordenar: abertos primeiro, depois fechados, depois completos
-      list.sort((a, b) => {
-        const statusOrder = { open: 0, closed: 1, completed: 2 };
-        return statusOrder[a.status] - statusOrder[b.status];
+    setLoading(true);
+    const rafflesQuery = query(clanCol(clan.slug, COLS.raffles));
+
+    const unsubscribe = onSnapshot(rafflesQuery, (snapshot) => {
+      const list = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          drawDate: data.drawDate ? data.drawDate.toDate() : undefined,
+          drawStartedAt: data.drawStartedAt ? data.drawStartedAt.toDate() : undefined
+        } as Raffle;
       });
-      
+
+      // Ordenar: abertos primeiro, depois sorteando, depois fechados, depois completos
+      list.sort((a, b) => {
+        const statusOrder = { open: 0, drawing: 1, closed: 2, completed: 3 };
+        return (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4);
+      });
+
       setRaffles(list);
-    } catch (error) {
+      setLoading(false);
+    }, (error) => {
       console.error('Erro ao carregar sorteios:', error);
       toast.error('Erro ao carregar sorteios');
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+
+    return () => unsubscribe();
+  }, [clan?.slug]);
 
   const createRaffle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +81,6 @@ function RafflesContent() {
       setTitle('');
       setDescription('');
       setPrize('');
-      loadRaffles();
     } catch (error) {
       console.error('Erro ao criar sorteio:', error);
       toast.error('Erro ao criar sorteio');
@@ -99,7 +96,6 @@ function RafflesContent() {
       });
 
       toast.success('Participação registrada!');
-      loadRaffles();
     } catch (error) {
       console.error('Erro ao participar:', error);
       toast.error('Erro ao participar do sorteio');
@@ -111,7 +107,7 @@ function RafflesContent() {
 
     const confirmed = await confirm({
       title: '🎁 Realizar Sorteio',
-      message: `Realizar sorteio de "${raffle.title}"?\n\n🎲 ${raffle.participants.length} participante(s)\n🏆 Prêmio: ${raffle.prize}\n\nUm vencedor será escolhido aleatoriamente e receberá uma notificação.`,
+      message: `Realizar sorteio de "${raffle.title}"?\n\n🎲 ${raffle.participants.length} participante(s)\n🏆 Prêmio: ${raffle.prize}\n\nUm vencedor será escolhido aleatoriamente e o sorteio iniciará ao vivo para todos online.`,
       confirmText: 'Sortear Agora',
       cancelText: 'Cancelar',
       type: 'success'
@@ -120,9 +116,6 @@ function RafflesContent() {
     if (!confirmed) return;
 
     try {
-      // Resetar estado de processamento
-      setIsProcessingResult(false);
-      
       // Carregar nomes dos participantes
       const names: { [key: string]: string } = {};
       const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
@@ -130,80 +123,114 @@ function RafflesContent() {
         const userDoc = membersSnap.docs.find(d => d.id === userId);
         names[userId] = userDoc?.data()?.nick || 'Usuário';
       }
-      
-      setParticipantNames(names);
-      setSelectedRaffle(raffle);
-      setShowWheel(true);
+
+      // Escolher o vencedor antecipadamente para sincronizar todos os clientes
+      const winnerIndex = Math.floor(Math.random() * raffle.participants.length);
+      const winnerId = raffle.participants[winnerIndex];
+      const winnerName = names[winnerId] || 'Usuário';
+
+      // Atualizar no Firestore para disparar a roleta em tempo real
+      await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
+        status: 'drawing',
+        winnerId,
+        winnerName,
+        drawnBy: userData.id,
+        drawStartedAt: new Date()
+      });
+
+      toast.success('Sorteio ao vivo iniciado!');
     } catch (error) {
-      console.error('Erro ao preparar sorteio:', error);
-      toast.error('Erro ao preparar sorteio');
+      console.error('Erro ao iniciar sorteio:', error);
+      toast.error('Erro ao iniciar sorteio');
     }
   };
 
-  const handleWheelComplete = async (winnerId: string) => {
-    // Proteção contra múltiplas execuções
-    if (isProcessingResult) {
-      console.log('⚠️ Já está processando resultado, ignorando chamada duplicada');
-      return;
-    }
-    
-    if (!selectedRaffle) {
-      console.log('⚠️ Nenhum sorteio selecionado');
-      return;
-    }
+  const resetRaffle = async (raffle: Raffle) => {
+    const confirmed = await confirm({
+      title: '🔄 Resetar Sorteio',
+      message: `Tem certeza que deseja cancelar e resetar o sorteio "${raffle.title}" de volta para aberto?`,
+      confirmText: 'Sim, Resetar',
+      cancelText: 'Não',
+      type: 'danger'
+    });
 
-    console.log('🎰 Processando vencedor:', winnerId);
-    setIsProcessingResult(true);
+    if (!confirmed) return;
 
     try {
-      const winnerName = participantNames[winnerId];
+      await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
+        status: 'open',
+        winnerId: null,
+        winnerName: null,
+        drawnBy: null,
+        drawStartedAt: null
+      });
+      toast.success('Sorteio resetado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao resetar sorteio:', error);
+      toast.error('Erro ao resetar sorteio');
+    }
+  };
 
-      // Verificar se o sorteio já não foi completado (proteção contra duplicação)
-      const currentRaffle = raffles.find(r => r.id === selectedRaffle.id);
-      if (currentRaffle?.status === 'completed') {
-        console.log('⚠️ Sorteio já foi completado, ignorando duplicação');
-        setShowWheel(false);
-        setSelectedRaffle(null);
-        setIsProcessingResult(false);
-        return;
+  const deleteRaffle = async (raffle: Raffle) => {
+    const confirmed = await confirm({
+      title: '🗑️ Excluir Sorteio',
+      message: `Tem certeza que deseja excluir o sorteio "${raffle.title}" permanentemente? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(clanDoc(clan.slug, COLS.raffles, raffle.id));
+      toast.success('Sorteio excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir sorteio:', error);
+      toast.error('Erro ao excluir sorteio');
+    }
+  };
+
+  const redrawRaffle = async (raffle: Raffle) => {
+    if (!userData || raffle.participants.length === 0) return;
+
+    const confirmed = await confirm({
+      title: '🔄 Refazer Sorteio',
+      message: `Tem certeza que deseja refazer o sorteio de "${raffle.title}"? \n\nO vencedor anterior (${raffle.winnerName}) será substituído por um novo sorteado ao vivo para todos os membros online.`,
+      confirmText: 'Refazer Agora',
+      cancelText: 'Cancelar',
+      type: 'warning'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      // Carregar nomes dos participantes
+      const names: { [key: string]: string } = {};
+      const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
+      for (const userId of raffle.participants) {
+        const userDoc = membersSnap.docs.find(d => d.id === userId);
+        names[userId] = userDoc?.data()?.nick || 'Usuário';
       }
 
-      console.log('💾 Salvando resultado do sorteio...');
-      
-      // Atualizar sorteio
-      await updateDoc(clanDoc(clan.slug, COLS.raffles, selectedRaffle.id), {
+      // Escolher o novo vencedor
+      const winnerIndex = Math.floor(Math.random() * raffle.participants.length);
+      const winnerId = raffle.participants[winnerIndex];
+      const winnerName = names[winnerId] || 'Usuário';
+
+      // Atualizar o Firestore para status 'drawing' com o novo vencedor
+      await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
+        status: 'drawing',
         winnerId,
         winnerName,
-        status: 'completed',
-        drawDate: new Date()
+        drawnBy: userData.id,
+        drawStartedAt: new Date()
       });
 
-      console.log('📨 Enviando notificação para o vencedor:', winnerId);
-      
-      // Criar notificação APENAS para o vencedor
-      await addDoc(clanCol(clan.slug, COLS.notifications), {
-        userId: winnerId,
-        type: 'raffle_win',
-        title: 'Você Ganhou!',
-        message: `Parabéns! Você ganhou o sorteio: ${selectedRaffle.title} - ${selectedRaffle.prize}`,
-        read: false,
-        createdAt: new Date()
-      });
-
-      console.log('✅ Sorteio finalizado com sucesso!');
-      toast.success(`Sorteio realizado! Vencedor: ${winnerName}`);
-      
-      // Fechar modal e recarregar
-      setTimeout(() => {
-        setShowWheel(false);
-        setSelectedRaffle(null);
-        setIsProcessingResult(false);
-        loadRaffles();
-      }, 1000);
+      toast.success('Sorteio reiniciado ao vivo!');
     } catch (error) {
-      console.error('❌ Erro ao salvar resultado:', error);
-      toast.error('Erro ao salvar resultado do sorteio');
-      setIsProcessingResult(false);
+      console.error('Erro ao refazer sorteio:', error);
+      toast.error('Erro ao refazer sorteio');
     }
   };
 
@@ -330,6 +357,11 @@ function RafflesContent() {
                             Finalizado
                           </span>
                         )}
+                        {raffle.status === 'drawing' && (
+                          <span className="px-2 py-1 bg-yellow-600 rounded-full text-xs text-white animate-pulse">
+                            ⚡ Sorteando ao Vivo
+                          </span>
+                        )}
                         {raffle.status === 'open' && (
                           <span className="px-2 py-1 bg-blue-600 rounded-full text-xs text-white">
                             Aberto
@@ -342,6 +374,15 @@ function RafflesContent() {
                         <span className="font-semibold">{raffle.prize}</span>
                       </div>
                     </div>
+                    {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
+                      <button
+                        onClick={() => deleteRaffle(raffle)}
+                        className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-700/50 transition flex-shrink-0"
+                        title="Excluir Sorteio"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 text-gray-400 mb-4">
@@ -350,24 +391,49 @@ function RafflesContent() {
                   </div>
 
                   {isCompleted ? (
-                    <div className={`rounded-lg p-4 ${
-                      isWinner 
-                        ? 'bg-gradient-to-r from-yellow-600 to-yellow-700' 
-                        : 'bg-gray-700'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <Trophy className="h-6 w-6 text-white" />
-                        <div>
-                          <p className="text-white font-semibold">
-                            {isWinner ? '🎉 Você Ganhou!' : `Vencedor: ${raffle.winnerName}`}
-                          </p>
-                          {raffle.drawDate && (
-                            <p className="text-sm text-gray-300">
-                              Sorteado em {raffle.drawDate.toLocaleDateString('pt-BR')}
+                    <div className="space-y-2">
+                      <div className={`rounded-lg p-4 ${
+                        isWinner 
+                          ? 'bg-gradient-to-r from-yellow-600 to-yellow-700' 
+                          : 'bg-gray-700'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <Trophy className="h-6 w-6 text-white" />
+                          <div>
+                            <p className="text-white font-semibold">
+                              {isWinner ? '🎉 Você Ganhou!' : `Vencedor: ${raffle.winnerName}`}
                             </p>
-                          )}
+                            {raffle.drawDate && (
+                              <p className="text-sm text-gray-300">
+                                Sorteado em {raffle.drawDate.toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      {(userData?.role === 'admin' || userData?.role === 'super_admin') && raffle.participants.length > 0 && (
+                        <button
+                          onClick={() => redrawRaffle(raffle)}
+                          className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
+                        >
+                          <Trophy className="h-5 w-5" />
+                          Refazer Sorteio
+                        </button>
+                      )}
+                    </div>
+                  ) : raffle.status === 'drawing' ? (
+                    <div className="bg-yellow-950/30 border border-yellow-700/50 rounded-lg p-4 text-center">
+                      <p className="text-yellow-400 font-semibold animate-pulse mb-2">
+                        🎲 O sorteio está acontecendo ao vivo neste momento!
+                      </p>
+                      {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
+                        <button
+                          onClick={() => resetRaffle(raffle)}
+                          className="mt-2 w-full bg-red-900/50 hover:bg-red-900 text-red-200 text-sm font-semibold py-2 rounded-lg transition"
+                        >
+                          Cancelar / Resetar Sorteio
+                        </button>
+                      )}
                     </div>
                   ) : raffle.status === 'open' ? (
                     <>
@@ -411,17 +477,6 @@ function RafflesContent() {
       </div>
       
       <ConfirmDialog />
-      
-      {/* Modal de Roleta */}
-      {showWheel && selectedRaffle && (
-        <RaffleWheel
-          isOpen={showWheel}
-          participants={selectedRaffle.participants}
-          participantNames={participantNames}
-          onComplete={handleWheelComplete}
-          prize={selectedRaffle.prize}
-        />
-      )}
     </div>
   );
 }

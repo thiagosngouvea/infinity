@@ -140,10 +140,12 @@ export interface Raffle {
   participants: string[]; // user IDs
   winnerId?: string;
   winnerName?: string;
-  status: 'open' | 'closed' | 'completed';
+  status: 'open' | 'closed' | 'drawing' | 'completed';
   createdBy: string;
   createdAt: Date;
   drawDate?: Date;
+  drawnBy?: string;
+  drawStartedAt?: Date;
 }
 
 export interface Notification {

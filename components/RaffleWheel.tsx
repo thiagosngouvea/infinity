@@ -10,6 +10,7 @@ interface RaffleWheelProps {
   participantNames: { [key: string]: string }; // Map de ID -> Nome
   onComplete: (winnerId: string) => void;
   prize: string;
+  winnerId?: string; // Vencedor pré-determinado para sincronização real-time
 }
 
 export default function RaffleWheel({
@@ -17,7 +18,8 @@ export default function RaffleWheel({
   participants,
   participantNames,
   onComplete,
-  prize
+  prize,
+  winnerId
 }: RaffleWheelProps) {
   const [spinning, setSpinning] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -49,7 +51,7 @@ export default function RaffleWheel({
     if (isOpen && !spinning && !completed && participants.length > 0) {
       startSpin();
     }
-    
+
     // Reset quando o modal fechar
     if (!isOpen) {
       setCompleted(false);
@@ -62,52 +64,75 @@ export default function RaffleWheel({
   const startSpin = () => {
     setSpinning(true);
     setWinner(null);
-    
-    // Escolher vencedor antecipadamente
-    const winnerIndex = Math.floor(Math.random() * participants.length);
-    const totalSpins = 20 + Math.floor(Math.random() * 10); // 20-30 voltas
-    let spinCount = 0;
-    let currentSpeed = 50;
 
-    const spinInterval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % participants.length);
+    // Usar vencedor pré-determinado ou escolher aleatoriamente se não fornecido
+    let winnerIndex = -1;
+    if (winnerId && participants.includes(winnerId)) {
+      winnerIndex = participants.indexOf(winnerId);
+    } else {
+      winnerIndex = Math.floor(Math.random() * participants.length);
+    }
+
+    const slowdownSteps = 20; // Passos de desaceleração gradual
+    const minFastSteps = Math.max(80, Math.floor(participants.length * 1.2)); // Garante pelo menos uma volta completa e meia em velocidade máxima
+    const startIndex = (winnerIndex - slowdownSteps + participants.length) % participants.length;
+
+    let spinCount = 0;
+    let isSlowingDown = false;
+    let slowdownCount = 0;
+    let localIndex = currentIndex; // Usar referência local mutável para evitar atrasos na leitura do state do React
+
+    const runStep = () => {
+      if (isSlowingDown && slowdownCount >= slowdownSteps) {
+        // Parar no vencedor
+        setCurrentIndex(winnerIndex);
+        setWinner(participants[winnerIndex]);
+        setSpinning(false);
+        setShowConfetti(true);
+
+        // Vibração (se disponível)
+        if ('vibrate' in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+
+        // Chamar callback após animação completa (apenas uma vez)
+        setTimeout(() => {
+          if (!completed) {
+            setCompleted(true);
+            onComplete(participants[winnerIndex]);
+          }
+        }, 4000); // 4 segundos para aproveitar a vitória
+        return;
+      }
+
       spinCount++;
 
-      // Desacelerar gradualmente
-      if (spinCount > totalSpins * participants.length * 0.7) {
-        currentSpeed += 20; // Desacelera mais rápido no final
-      } else if (spinCount > totalSpins * participants.length * 0.5) {
-        currentSpeed += 10;
+      // Avançar de forma sequencial (passando obrigatoriamente por todos)
+      localIndex = (localIndex + 1) % participants.length;
+      setCurrentIndex(localIndex);
+
+      // Controlar transição para desaceleração
+      if (!isSlowingDown) {
+        const nextIndex = (localIndex + 1) % participants.length;
+        if (spinCount >= minFastSteps && nextIndex === startIndex) {
+          isSlowingDown = true;
+        }
+      } else {
+        slowdownCount++;
       }
 
-      setSpeed(currentSpeed);
-
-      // Parar no vencedor
-      if (spinCount >= totalSpins * participants.length) {
-        clearInterval(spinInterval);
-        
-        // Ajustar para parar exatamente no vencedor
-        setTimeout(() => {
-          setCurrentIndex(winnerIndex);
-          setWinner(participants[winnerIndex]);
-          setSpinning(false);
-          setShowConfetti(true);
-          
-          // Vibração (se disponível)
-          if ('vibrate' in navigator) {
-            navigator.vibrate([200, 100, 200]);
-          }
-
-          // Chamar callback após animação completa (apenas uma vez)
-          setTimeout(() => {
-            if (!completed) {
-              setCompleted(true);
-              onComplete(participants[winnerIndex]);
-            }
-          }, 4000); // 4 segundos para aproveitar a vitória
-        }, currentSpeed);
+      // Calcular o próximo delay (velocidade de 12ms no início e desaceleração progressiva)
+      let nextDelay = 12;
+      if (isSlowingDown) {
+        nextDelay = 12 + Math.pow(slowdownCount, 2) * 1.0; // Desaceleração exponencial
       }
-    }, currentSpeed);
+
+      setSpeed(nextDelay);
+      setTimeout(runStep, nextDelay);
+    };
+
+    // Iniciar a execução do primeiro passo
+    setTimeout(runStep, 12);
   };
 
   if (!isOpen) return null;
@@ -128,7 +153,7 @@ export default function RaffleWheel({
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl border-2 border-red-500 max-w-2xl w-full p-8">
-          
+
           {/* Título */}
           <div className="text-center mb-8">
             <Trophy className="h-16 w-16 text-yellow-500 mx-auto mb-4 animate-bounce" />
@@ -149,16 +174,15 @@ export default function RaffleWheel({
 
               {/* Display do nome atual */}
               <div className="text-center py-12">
-                <div className={`text-4xl font-bold transition-all duration-200 ${
-                  spinning 
-                    ? 'text-white scale-110' 
-                    : winner 
-                      ? 'text-yellow-400 scale-125 animate-pulse' 
+                <div className={`text-4xl font-bold transition-all duration-200 ${spinning
+                    ? 'text-white scale-110'
+                    : winner
+                      ? 'text-yellow-400 scale-125 animate-pulse'
                       : 'text-gray-400'
-                }`}>
+                  }`}>
                   {participantNames[participants[currentIndex]] || 'Carregando...'}
                 </div>
-                
+
                 {!spinning && winner && (
                   <div className="mt-6 flex justify-center gap-2">
                     <Sparkles className="h-8 w-8 text-yellow-400 animate-spin" />
@@ -179,11 +203,10 @@ export default function RaffleWheel({
               {participants.map((id, index) => (
                 <div
                   key={id}
-                  className={`px-3 py-1 rounded-full text-xs transition-all ${
-                    index === currentIndex
+                  className={`px-3 py-1 rounded-full text-xs transition-all ${index === currentIndex
                       ? 'bg-red-600 text-white scale-110 font-bold'
                       : 'bg-gray-700 text-gray-400'
-                  }`}
+                    }`}
                 >
                   {participantNames[id]}
                 </div>
