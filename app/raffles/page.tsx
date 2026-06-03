@@ -191,6 +191,49 @@ function RafflesContent() {
     }
   };
 
+  const redrawRaffle = async (raffle: Raffle) => {
+    if (!userData || raffle.participants.length === 0) return;
+
+    const confirmed = await confirm({
+      title: '🔄 Refazer Sorteio',
+      message: `Tem certeza que deseja refazer o sorteio de "${raffle.title}"? \n\nO vencedor anterior (${raffle.winnerName}) será substituído por um novo sorteado ao vivo para todos os membros online.`,
+      confirmText: 'Refazer Agora',
+      cancelText: 'Cancelar',
+      type: 'warning'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      // Carregar nomes dos participantes
+      const names: { [key: string]: string } = {};
+      const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
+      for (const userId of raffle.participants) {
+        const userDoc = membersSnap.docs.find(d => d.id === userId);
+        names[userId] = userDoc?.data()?.nick || 'Usuário';
+      }
+
+      // Escolher o novo vencedor
+      const winnerIndex = Math.floor(Math.random() * raffle.participants.length);
+      const winnerId = raffle.participants[winnerIndex];
+      const winnerName = names[winnerId] || 'Usuário';
+
+      // Atualizar o Firestore para status 'drawing' com o novo vencedor
+      await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
+        status: 'drawing',
+        winnerId,
+        winnerName,
+        drawnBy: userData.id,
+        drawStartedAt: new Date()
+      });
+
+      toast.success('Sorteio reiniciado ao vivo!');
+    } catch (error) {
+      console.error('Erro ao refazer sorteio:', error);
+      toast.error('Erro ao refazer sorteio');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -348,24 +391,35 @@ function RafflesContent() {
                   </div>
 
                   {isCompleted ? (
-                    <div className={`rounded-lg p-4 ${
-                      isWinner 
-                        ? 'bg-gradient-to-r from-yellow-600 to-yellow-700' 
-                        : 'bg-gray-700'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <Trophy className="h-6 w-6 text-white" />
-                        <div>
-                          <p className="text-white font-semibold">
-                            {isWinner ? '🎉 Você Ganhou!' : `Vencedor: ${raffle.winnerName}`}
-                          </p>
-                          {raffle.drawDate && (
-                            <p className="text-sm text-gray-300">
-                              Sorteado em {raffle.drawDate.toLocaleDateString('pt-BR')}
+                    <div className="space-y-2">
+                      <div className={`rounded-lg p-4 ${
+                        isWinner 
+                          ? 'bg-gradient-to-r from-yellow-600 to-yellow-700' 
+                          : 'bg-gray-700'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <Trophy className="h-6 w-6 text-white" />
+                          <div>
+                            <p className="text-white font-semibold">
+                              {isWinner ? '🎉 Você Ganhou!' : `Vencedor: ${raffle.winnerName}`}
                             </p>
-                          )}
+                            {raffle.drawDate && (
+                              <p className="text-sm text-gray-300">
+                                Sorteado em {raffle.drawDate.toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      {(userData?.role === 'admin' || userData?.role === 'super_admin') && raffle.participants.length > 0 && (
+                        <button
+                          onClick={() => redrawRaffle(raffle)}
+                          className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2"
+                        >
+                          <Trophy className="h-5 w-5" />
+                          Refazer Sorteio
+                        </button>
+                      )}
                     </div>
                   ) : raffle.status === 'drawing' ? (
                     <div className="bg-yellow-950/30 border border-yellow-700/50 rounded-lg p-4 text-center">
