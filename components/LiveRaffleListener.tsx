@@ -72,6 +72,23 @@ export default function LiveRaffleListener() {
           membersSnap.docs.forEach((userDoc) => {
             names[userDoc.id] = userDoc.data()?.nick || 'Usuário';
           });
+
+          // Mapear participantes fakes para testes locais
+          const COOL_FAKE_NAMES = [
+            'ShadowHunter', 'Phoenix_PW', 'ViperX', 'Titan_WB', 'GhostRider', 'BlazeMage', 'StormSacer', 'GoldHunter', 'RogueWarrior', 'Rex_MG',
+            'SniperArqueiro', 'ZeusGod', 'OdinKing', 'ThorHammer', 'LokiTrick', 'AresWar', 'HadesUnder', 'AnubisGuard', 'RaSun', 'NeonKnight',
+            'SpecterGhost', 'WraithMistico', 'ReaperDeath', 'DoomSlayer', 'AlphaLeader', 'OmegaEnd', 'KratosGodOfWar', 'GokuSSJ', 'VegetaPrince', 'LinkHero',
+            'ZeldaPrincess', 'MarioPlumber', 'LuigiGreen', 'SonicSpeed', 'TailsFox', 'KnucklesRed', 'DanteDevil', 'VergilBlade', 'NeroArm', 'LeonSpecial',
+            'ChrisRedfield', 'ClaireRed', 'JillValentine', 'AdaWong', 'WeskerUro', 'NemesisSTARS', 'CloudStrife', 'SephirothAngel', 'TifaLockhart', 'AerithFlower'
+          ];
+
+          raffle.participants.forEach((userId) => {
+            if (userId.startsWith('fake_')) {
+              const index = parseInt(userId.split('_')[1]) || 0;
+              names[userId] = COOL_FAKE_NAMES[index] || `FakePlayer_${index}`;
+            }
+          });
+
           setParticipantNames(names);
           setShowWheel(true);
         } catch (error) {
@@ -94,27 +111,31 @@ export default function LiveRaffleListener() {
     // APENAS o admin que iniciou o sorteio deve persistir o status como concluído
     if (userData && activeRaffle.drawnBy === userData.id) {
       try {
-        const winnerName = participantNames[winnerId] || 'Usuário';
+        const winnerIds = activeRaffle.winnerIds && activeRaffle.winnerIds.length > 0
+          ? activeRaffle.winnerIds
+          : (activeRaffle.winnerId ? [activeRaffle.winnerId] : [winnerId]);
 
         // Atualizar sorteio no Firestore
         await updateDoc(clanDoc(clan.slug, COLS.raffles, activeRaffle.id), {
-          winnerId,
-          winnerName,
           status: 'completed',
           drawDate: new Date()
         });
 
-        // Criar notificação para o vencedor
-        await addDoc(clanCol(clan.slug, COLS.notifications), {
-          userId: winnerId,
-          type: 'raffle_win',
-          title: 'Você Ganhou!',
-          message: `Parabéns! Você ganhou o sorteio: ${activeRaffle.title} - ${activeRaffle.prize}`,
-          read: false,
-          createdAt: new Date()
-        });
+        // Criar notificação para todos os vencedores
+        for (const wId of winnerIds) {
+          const wName = participantNames[wId] || 'Usuário';
+          await addDoc(clanCol(clan.slug, COLS.notifications), {
+            userId: wId,
+            type: 'raffle_win',
+            title: 'Você Ganhou!',
+            message: `Parabéns! Você ganhou o sorteio: ${activeRaffle.title} - ${activeRaffle.prize}`,
+            read: false,
+            createdAt: new Date()
+          });
+        }
 
-        toast.success(`Sorteio finalizado! Vencedor: ${winnerName}`);
+        const winnersDisplay = winnerIds.map(wId => participantNames[wId] || 'Usuário').join(', ');
+        toast.success(`Sorteio finalizado! Vencedor(es): ${winnersDisplay}`);
       } catch (error) {
         console.error('Erro ao salvar resultado final do sorteio:', error);
         toast.error('Erro ao salvar resultado final do sorteio');
@@ -140,6 +161,7 @@ export default function LiveRaffleListener() {
       onComplete={handleWheelComplete}
       prize={activeRaffle.prize}
       winnerId={activeRaffle.winnerId}
+      winnerIds={activeRaffle.winnerIds}
     />
   );
 }
