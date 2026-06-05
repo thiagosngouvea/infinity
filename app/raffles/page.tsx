@@ -20,6 +20,7 @@ function RafflesContent() {
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   // Form state
   const [title, setTitle] = useState('');
@@ -307,6 +308,14 @@ function RafflesContent() {
     );
   }
 
+  const filteredRaffles = raffles.filter(raffle => {
+    if (activeTab === 'active') {
+      return raffle.status !== 'completed';
+    } else {
+      return raffle.status === 'completed';
+    }
+  });
+
   return (
     <div className="min-h-screen bg-gray-900">
       <nav className="bg-gray-800 border-b border-gray-700">
@@ -404,15 +413,50 @@ function RafflesContent() {
           </div>
         )}
 
+        {/* Abas de Navegação */}
+        <div className="flex border-b border-gray-700 mb-8">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`py-3 px-6 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
+              activeTab === 'active'
+                ? 'border-red-500 text-white font-bold'
+                : 'border-transparent text-gray-400 hover:text-gray-250'
+            }`}
+          >
+            <Gift className="h-4 w-4" />
+            Sorteios Ativos
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`py-3 px-6 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
+              activeTab === 'completed'
+                ? 'border-red-500 text-white font-bold'
+                : 'border-transparent text-gray-400 hover:text-gray-250'
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            Sorteios Finalizados
+          </button>
+        </div>
+
         {/* Lista de Sorteios */}
-        {raffles.length === 0 ? (
+        {filteredRaffles.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
-            <Gift className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">Nenhum sorteio disponível no momento</p>
+            {activeTab === 'active' ? (
+              <>
+                <Gift className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">Nenhum sorteio ativo no momento</p>
+              </>
+            ) : (
+              <>
+                <Trophy className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">Nenhum sorteio finalizado ainda</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid gap-6">
-            {raffles.map((raffle) => {
+            {filteredRaffles.map((raffle) => {
               const isParticipating = raffle.participants.includes(userData?.id || '');
               const isCompleted = raffle.status === 'completed';
               const isWinner = raffle.winnerIds?.includes(userData?.id || '') || raffle.winnerId === userData?.id;
