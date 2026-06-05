@@ -20,11 +20,13 @@ function RafflesContent() {
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [prize, setPrize] = useState('');
+  const [winnersCount, setWinnersCount] = useState(1);
 
   useEffect(() => {
     if (!clan?.slug) return;
@@ -70,6 +72,7 @@ function RafflesContent() {
         title,
         description,
         prize,
+        winnersCount: Number(winnersCount) || 1,
         participants: [],
         status: 'open',
         createdBy: userData.id,
@@ -81,6 +84,7 @@ function RafflesContent() {
       setTitle('');
       setDescription('');
       setPrize('');
+      setWinnersCount(1);
     } catch (error) {
       console.error('Erro ao criar sorteio:', error);
       toast.error('Erro ao criar sorteio');
@@ -107,7 +111,7 @@ function RafflesContent() {
 
     const confirmed = await confirm({
       title: '🎁 Realizar Sorteio',
-      message: `Realizar sorteio de "${raffle.title}"?\n\n🎲 ${raffle.participants.length} participante(s)\n🏆 Prêmio: ${raffle.prize}\n\nUm vencedor será escolhido aleatoriamente e o sorteio iniciará ao vivo para todos online.`,
+      message: `Realizar sorteio de "${raffle.title}"?\n\n🎲 ${raffle.participants.length} participante(s)\n👥 Ganhadores a sortear: ${raffle.winnersCount || 1}\n🏆 Prêmio: ${raffle.prize}\n\nOs vencedores serão escolhidos aleatoriamente e o sorteio iniciará ao vivo para todos online.`,
       confirmText: 'Sortear Agora',
       cancelText: 'Cancelar',
       type: 'success'
@@ -119,21 +123,49 @@ function RafflesContent() {
       // Carregar nomes dos participantes
       const names: { [key: string]: string } = {};
       const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
+      
+      const COOL_FAKE_NAMES = [
+        'ShadowHunter', 'Phoenix_PW', 'ViperX', 'Titan_WB', 'GhostRider', 'BlazeMage', 'StormSacer', 'GoldHunter', 'RogueWarrior', 'Rex_MG',
+        'SniperArqueiro', 'ZeusGod', 'OdinKing', 'ThorHammer', 'LokiTrick', 'AresWar', 'HadesUnder', 'AnubisGuard', 'RaSun', 'NeonKnight',
+        'SpecterGhost', 'WraithMistico', 'ReaperDeath', 'DoomSlayer', 'AlphaLeader', 'OmegaEnd', 'KratosGodOfWar', 'GokuSSJ', 'VegetaPrince', 'LinkHero',
+        'ZeldaPrincess', 'MarioPlumber', 'LuigiGreen', 'SonicSpeed', 'TailsFox', 'KnucklesRed', 'DanteDevil', 'VergilBlade', 'NeroArm', 'LeonSpecial',
+        'ChrisRedfield', 'ClaireRed', 'JillValentine', 'AdaWong', 'WeskerUro', 'NemesisSTARS', 'CloudStrife', 'SephirothAngel', 'TifaLockhart', 'AerithFlower'
+      ];
+
       for (const userId of raffle.participants) {
-        const userDoc = membersSnap.docs.find(d => d.id === userId);
-        names[userId] = userDoc?.data()?.nick || 'Usuário';
+        if (userId.startsWith('fake_')) {
+          const index = parseInt(userId.split('_')[1]) || 0;
+          names[userId] = COOL_FAKE_NAMES[index] || `FakePlayer_${index}`;
+        } else {
+          const userDoc = membersSnap.docs.find(d => d.id === userId);
+          names[userId] = userDoc?.data()?.nick || 'Usuário';
+        }
       }
 
-      // Escolher o vencedor antecipadamente para sincronizar todos os clientes
-      const winnerIndex = Math.floor(Math.random() * raffle.participants.length);
-      const winnerId = raffle.participants[winnerIndex];
-      const winnerName = names[winnerId] || 'Usuário';
+      // Escolher os vencedores sem repetições
+      const wantedWinnersCount = raffle.winnersCount || 1;
+      const actualWinnersCount = Math.min(wantedWinnersCount, raffle.participants.length);
+
+      const selectedWinnerIds: string[] = [];
+      const selectedWinnerNames: string[] = [];
+      const pool = [...raffle.participants];
+
+      for (let i = 0; i < actualWinnersCount; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        const wId = pool[idx];
+        const wName = names[wId] || 'Usuário';
+        selectedWinnerIds.push(wId);
+        selectedWinnerNames.push(wName);
+        pool.splice(idx, 1);
+      }
 
       // Atualizar no Firestore para disparar a roleta em tempo real
       await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
         status: 'drawing',
-        winnerId,
-        winnerName,
+        winnerId: selectedWinnerIds[0] || '',
+        winnerName: selectedWinnerNames[0] || 'Usuário',
+        winnerIds: selectedWinnerIds,
+        winnerNames: selectedWinnerNames,
         drawnBy: userData.id,
         drawStartedAt: new Date()
       });
@@ -161,6 +193,8 @@ function RafflesContent() {
         status: 'open',
         winnerId: null,
         winnerName: null,
+        winnerIds: null,
+        winnerNames: null,
         drawnBy: null,
         drawStartedAt: null
       });
@@ -194,9 +228,13 @@ function RafflesContent() {
   const redrawRaffle = async (raffle: Raffle) => {
     if (!userData || raffle.participants.length === 0) return;
 
+    const previousWinnersText = raffle.winnerNames && raffle.winnerNames.length > 0
+      ? raffle.winnerNames.join(', ')
+      : raffle.winnerName || 'Nenhum';
+
     const confirmed = await confirm({
       title: '🔄 Refazer Sorteio',
-      message: `Tem certeza que deseja refazer o sorteio de "${raffle.title}"? \n\nO vencedor anterior (${raffle.winnerName}) será substituído por um novo sorteado ao vivo para todos os membros online.`,
+      message: `Tem certeza que deseja refazer o sorteio de "${raffle.title}"? \n\nOs vencedores anteriores (${previousWinnersText}) serão substituídos por novos sorteados ao vivo para todos os membros online.`,
       confirmText: 'Refazer Agora',
       cancelText: 'Cancelar',
       type: 'warning'
@@ -208,21 +246,49 @@ function RafflesContent() {
       // Carregar nomes dos participantes
       const names: { [key: string]: string } = {};
       const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
+
+      const COOL_FAKE_NAMES = [
+        'ShadowHunter', 'Phoenix_PW', 'ViperX', 'Titan_WB', 'GhostRider', 'BlazeMage', 'StormSacer', 'GoldHunter', 'RogueWarrior', 'Rex_MG',
+        'SniperArqueiro', 'ZeusGod', 'OdinKing', 'ThorHammer', 'LokiTrick', 'AresWar', 'HadesUnder', 'AnubisGuard', 'RaSun', 'NeonKnight',
+        'SpecterGhost', 'WraithMistico', 'ReaperDeath', 'DoomSlayer', 'AlphaLeader', 'OmegaEnd', 'KratosGodOfWar', 'GokuSSJ', 'VegetaPrince', 'LinkHero',
+        'ZeldaPrincess', 'MarioPlumber', 'LuigiGreen', 'SonicSpeed', 'TailsFox', 'KnucklesRed', 'DanteDevil', 'VergilBlade', 'NeroArm', 'LeonSpecial',
+        'ChrisRedfield', 'ClaireRed', 'JillValentine', 'AdaWong', 'WeskerUro', 'NemesisSTARS', 'CloudStrife', 'SephirothAngel', 'TifaLockhart', 'AerithFlower'
+      ];
+
       for (const userId of raffle.participants) {
-        const userDoc = membersSnap.docs.find(d => d.id === userId);
-        names[userId] = userDoc?.data()?.nick || 'Usuário';
+        if (userId.startsWith('fake_')) {
+          const index = parseInt(userId.split('_')[1]) || 0;
+          names[userId] = COOL_FAKE_NAMES[index] || `FakePlayer_${index}`;
+        } else {
+          const userDoc = membersSnap.docs.find(d => d.id === userId);
+          names[userId] = userDoc?.data()?.nick || 'Usuário';
+        }
       }
 
-      // Escolher o novo vencedor
-      const winnerIndex = Math.floor(Math.random() * raffle.participants.length);
-      const winnerId = raffle.participants[winnerIndex];
-      const winnerName = names[winnerId] || 'Usuário';
+      // Escolher os vencedores sem repetições
+      const wantedWinnersCount = raffle.winnersCount || 1;
+      const actualWinnersCount = Math.min(wantedWinnersCount, raffle.participants.length);
 
-      // Atualizar o Firestore para status 'drawing' com o novo vencedor
+      const selectedWinnerIds: string[] = [];
+      const selectedWinnerNames: string[] = [];
+      const pool = [...raffle.participants];
+
+      for (let i = 0; i < actualWinnersCount; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        const wId = pool[idx];
+        const wName = names[wId] || 'Usuário';
+        selectedWinnerIds.push(wId);
+        selectedWinnerNames.push(wName);
+        pool.splice(idx, 1);
+      }
+
+      // Atualizar o Firestore para status 'drawing' com os novos vencedores
       await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
         status: 'drawing',
-        winnerId,
-        winnerName,
+        winnerId: selectedWinnerIds[0] || '',
+        winnerName: selectedWinnerNames[0] || 'Usuário',
+        winnerIds: selectedWinnerIds,
+        winnerNames: selectedWinnerNames,
         drawnBy: userData.id,
         drawStartedAt: new Date()
       });
@@ -241,6 +307,14 @@ function RafflesContent() {
       </div>
     );
   }
+
+  const filteredRaffles = raffles.filter(raffle => {
+    if (activeTab === 'active') {
+      return raffle.status !== 'completed';
+    } else {
+      return raffle.status === 'completed';
+    }
+  });
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -307,6 +381,19 @@ function RafflesContent() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Quantidade de Ganhadores</label>
+                <input
+                  type="number"
+                  value={winnersCount}
+                  onChange={(e) => setWinnersCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  required
+                  min={1}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Ex: 1"
+                />
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -326,18 +413,53 @@ function RafflesContent() {
           </div>
         )}
 
+        {/* Abas de Navegação */}
+        <div className="flex border-b border-gray-700 mb-8">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`py-3 px-6 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
+              activeTab === 'active'
+                ? 'border-red-500 text-white font-bold'
+                : 'border-transparent text-gray-400 hover:text-gray-250'
+            }`}
+          >
+            <Gift className="h-4 w-4" />
+            Sorteios Ativos
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`py-3 px-6 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
+              activeTab === 'completed'
+                ? 'border-red-500 text-white font-bold'
+                : 'border-transparent text-gray-400 hover:text-gray-250'
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            Sorteios Finalizados
+          </button>
+        </div>
+
         {/* Lista de Sorteios */}
-        {raffles.length === 0 ? (
+        {filteredRaffles.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
-            <Gift className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">Nenhum sorteio disponível no momento</p>
+            {activeTab === 'active' ? (
+              <>
+                <Gift className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">Nenhum sorteio ativo no momento</p>
+              </>
+            ) : (
+              <>
+                <Trophy className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">Nenhum sorteio finalizado ainda</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid gap-6">
-            {raffles.map((raffle) => {
+            {filteredRaffles.map((raffle) => {
               const isParticipating = raffle.participants.includes(userData?.id || '');
               const isCompleted = raffle.status === 'completed';
-              const isWinner = raffle.winnerId === userData?.id;
+              const isWinner = raffle.winnerIds?.includes(userData?.id || '') || raffle.winnerId === userData?.id;
 
               return (
                 <div 
@@ -373,6 +495,10 @@ function RafflesContent() {
                         <Trophy className="h-5 w-5" />
                         <span className="font-semibold">{raffle.prize}</span>
                       </div>
+                      <div className="text-xs text-gray-450 mt-2 flex items-center gap-1.5">
+                        <span className="text-gray-450">Ganhadores configurados:</span>
+                        <span className="text-gray-200 font-semibold">{raffle.winnersCount || 1}</span>
+                      </div>
                     </div>
                     {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
                       <button
@@ -398,14 +524,41 @@ function RafflesContent() {
                           : 'bg-gray-700'
                       }`}>
                         <div className="flex items-center gap-2">
-                          <Trophy className="h-6 w-6 text-white" />
-                          <div>
+                          <Trophy className="h-6 w-6 text-white flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
                             <p className="text-white font-semibold">
-                              {isWinner ? '🎉 Você Ganhou!' : `Vencedor: ${raffle.winnerName}`}
+                              {isWinner ? '🎉 Você Ganhou!' : 'Sorteio Finalizado'}
                             </p>
+                            <div className="mt-1.5 text-sm text-gray-200">
+                              {raffle.winnerNames && raffle.winnerNames.length > 0 ? (
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-gray-300 font-medium text-xs">Ganhadores sorteados:</span>
+                                  <div className="flex flex-wrap gap-1.5 mt-0.5">
+                                    {raffle.winnerNames.map((wName, idx) => {
+                                      const wId = raffle.winnerIds?.[idx];
+                                      const isThisUserWinner = wId === userData?.id;
+                                      return (
+                                        <span 
+                                          key={idx} 
+                                          className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
+                                            isThisUserWinner 
+                                              ? 'bg-yellow-500 text-gray-950 font-bold border border-yellow-300 shadow-sm' 
+                                              : 'bg-gray-800 text-gray-305'
+                                          }`}
+                                        >
+                                          {wName} {isThisUserWinner && ' (Você!)'}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span>Vencedor: {raffle.winnerName}</span>
+                              )}
+                            </div>
                             {raffle.drawDate && (
-                              <p className="text-sm text-gray-300">
-                                Sorteado em {raffle.drawDate.toLocaleDateString('pt-BR')}
+                              <p className="text-xs text-gray-400 mt-2">
+                                Sorteado em {raffle.drawDate.toLocaleDateString('pt-BR')} às {raffle.drawDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             )}
                           </div>
