@@ -299,21 +299,6 @@ function RafflesContent() {
     }
   };
 
-  const addFakeParticipants = async (raffle: Raffle) => {
-    try {
-      const fakeIds = Array.from({ length: 50 }, (_, i) => `fake_${i}`);
-      const newParticipants = Array.from(new Set([...raffle.participants, ...fakeIds]));
-      
-      await updateDoc(clanDoc(clan.slug, COLS.raffles, raffle.id), {
-        participants: newParticipants
-      });
-      toast.success('50 Participantes Fakes adicionados!');
-    } catch (error) {
-      console.error('Erro ao adicionar fakes:', error);
-      toast.error('Erro ao adicionar fakes');
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -584,15 +569,6 @@ function RafflesContent() {
                         >
                           <Trophy className="h-5 w-5" />
                           Realizar Sorteio
-                        </button>
-                      )}
-                      
-                      {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
-                        <button
-                          onClick={() => addFakeParticipants(raffle)}
-                          className="w-full mt-2 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-1.5 rounded-lg transition flex items-center justify-center gap-2 text-sm"
-                        >
-                          🧪 [Dev] Inserir 50 Participantes Fakes
                         </button>
                       )}
                     </>
