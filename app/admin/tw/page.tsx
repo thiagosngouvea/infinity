@@ -32,6 +32,7 @@ import {
   Archive,
   Coins,
   Trash2,
+  MapPinned,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
@@ -656,6 +657,13 @@ function AdminTWContent() {
                             <Trash2 className="h-4 w-4" />
                           </button>
                           <Link
+                            href={`/tw/${session.id}/planning`}
+                            title="Abrir planejamento tático"
+                            className="rounded-lg bg-cyan-900/30 p-2 text-cyan-400 transition hover:bg-cyan-900/50"
+                          >
+                            <MapPinned className="h-4 w-4" />
+                          </Link>
+                          <Link
                             href={`/admin/tw/${session.id}`}
                             className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg transition"
                           >
@@ -675,6 +683,13 @@ function AdminTWContent() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
+                          <Link
+                            href={`/tw/${session.id}/planning`}
+                            title="Ver planejamento tático"
+                            className="rounded-lg bg-cyan-900/20 p-2 text-cyan-500 transition hover:bg-cyan-900/40"
+                          >
+                            <MapPinned className="h-4 w-4" />
+                          </Link>
                           <Link
                             href={`/admin/tw/${session.id}`}
                             className="flex items-center gap-1.5 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"

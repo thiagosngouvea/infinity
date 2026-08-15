@@ -147,6 +147,12 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
+    // Planejamento tatico da TW - membros consultam; admins publicam alteracoes
+    match /clans/{clanSlug}/twPlans/{twId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     // Contas 0800 — acesso exclusivo para admins e super_admins
 
     match /clans/{clanSlug}/accounts0800/{docId} {

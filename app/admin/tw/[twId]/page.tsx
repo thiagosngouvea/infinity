@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase';
 import { TWSession, TWVote, TWRosterEntry, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Sword, Users, Plus, X, Check, Search, UserPlus, Coins, Archive, KeyRound } from 'lucide-react';
+import { ArrowLeft, Sword, Users, Plus, X, Check, Search, UserPlus, Coins, Archive, KeyRound, MapPinned } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
 import LoadingLogo from '@/components/LoadingLogo';
@@ -209,13 +209,19 @@ function AdminTWRosterContent() {
               <h1 className="text-xl font-bold text-white truncate max-w-xs">{session.title}</h1>
               {session.closed && <span className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">Encerrada</span>}
             </div>
-            {!session.closed && (
-              <button onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition text-sm">
-                <UserPlus className="h-4 w-4" /> Adicionar Manual
-              </button>
-            )}
-            {session.closed && <div className="w-32" />}
+            <div className="flex items-center gap-2">
+              <Link href={`/tw/${twId}/planning`}
+                className="flex items-center gap-2 rounded-lg border border-cyan-700/50 bg-cyan-950/20 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-900/30">
+                <MapPinned className="h-4 w-4" />
+                <span className="hidden sm:inline">Planejamento</span>
+              </Link>
+              {!session.closed && (
+                <button onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition text-sm">
+                  <UserPlus className="h-4 w-4" /> <span className="hidden sm:inline">Adicionar Manual</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </nav>
