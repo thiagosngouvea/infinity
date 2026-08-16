@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
 import {
   ArrowLeft, Sword, Check, X, Users, Coins, Clock,
   CalendarDays, Trophy, Plus, Archive, Edit, ChevronDown, ChevronUp,
-  KeyRound,
+  KeyRound, MapPinned,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ConfirmModal';
@@ -672,16 +672,21 @@ function TWContent() {
                         )}
                       </div>
 
-                      {/* Admin: link para roster completo */}
-                      {isAdmin && (
-                        <div className="px-6 pb-4">
+                      {/* Planejamento compartilhado e gestão do roster */}
+                      <div className="grid gap-2 px-6 pb-4 sm:grid-cols-2">
+                        <Link href={`/tw/${session.id}/planning`}
+                          className="flex items-center justify-center gap-2 rounded-lg border border-cyan-700/50 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-900/20">
+                          <MapPinned className="h-4 w-4" />
+                          {isAdmin ? 'Planejar estratégia' : 'Ver estratégia'}
+                        </Link>
+                        {isAdmin && (
                           <Link href={`/admin/tw/${session.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-2 border border-rose-700/50 text-rose-300 hover:bg-rose-900/20 rounded-lg text-sm font-semibold transition">
+                            className="flex items-center justify-center gap-2 rounded-lg border border-rose-700/50 py-2 text-sm font-semibold text-rose-300 transition hover:bg-rose-900/20">
                             <Users className="h-4 w-4" />
-                            Gerenciar Roster completo
+                            Gerenciar Roster
                           </Link>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -742,6 +747,11 @@ function TWContent() {
                               {myVote.canParticipate ? 'Confirmei' : 'Não fui'}
                             </span>
                           )}
+                          <Link href={`/tw/${session.id}/planning`}
+                            className="flex items-center gap-1.5 rounded-lg border border-cyan-800/50 bg-cyan-950/20 px-3 py-2 text-xs font-semibold text-cyan-400 transition hover:bg-cyan-900/30 hover:text-cyan-300">
+                            <MapPinned className="h-3.5 w-3.5" />
+                            Estratégia
+                          </Link>
                         </div>
                       </div>
                     </div>

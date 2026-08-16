@@ -55,4 +55,5 @@ export const COLS = {
   twSessions:    'twSessions',
   twVotes:       'twVotes',
   twRoster:      'twRoster',
+  twPlans:       'twPlans',
 } as const;

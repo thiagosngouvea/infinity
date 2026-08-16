@@ -267,3 +267,46 @@ export interface TWRosterEntry {
   selectedAt: Date;
   rosterPointsAwarded?: boolean; // Se já recebeu pontos por estar no roster
 }
+
+export type TWPlanMarkerType = 'attack' | 'defense' | 'rally' | 'danger' | 'group' | 'member';
+
+export interface TWPlanPoint {
+  x: number; // horizontal position on the map (0-100)
+  y: number; // vertical position on the map (0-100)
+}
+
+export interface TWPlanMarker extends TWPlanPoint {
+  id: string;
+  type: TWPlanMarkerType;
+  label: string;
+  userId?: string;
+  groupId?: string;
+}
+
+export interface TWPlanGroup {
+  id: string;
+  name: string;
+  objective: string;
+  memberIds: string[];
+}
+
+export interface TWPlanRoute {
+  id: string;
+  label: string;
+  color: string;
+  points: TWPlanPoint[];
+}
+
+export interface TWPlan {
+  id: string;
+  twId: string;
+  strategy: string;
+  objectives: string[];
+  markers: TWPlanMarker[];
+  routes: TWPlanRoute[];
+  groups: TWPlanGroup[];
+  memberRoles?: Record<string, string>; // compatibilidade com planos antigos
+  updatedBy: string;
+  updatedByName: string;
+  updatedAt?: Date;
+}
