@@ -266,6 +266,9 @@ export interface TWRosterEntry {
   selectedBy: string;          // Admin que selecionou
   selectedAt: Date;
   rosterPointsAwarded?: boolean; // Se já recebeu pontos por estar no roster
+  isManual?: boolean;
+  contact?: string;
+  personName?: string;
 }
 
 export type TWPlanMarkerType = 'attack' | 'defense' | 'rally' | 'danger' | 'group' | 'member';
