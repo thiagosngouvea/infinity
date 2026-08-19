@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Castle,
   ChevronRight,
   CircleDot,
   Eraser,
@@ -56,6 +55,20 @@ import {
 type TacticalMarkerType = 'attack' | 'defense' | 'rally' | 'danger' | 'catapult';
 type PlannerTool = 'select' | 'route' | 'group' | TacticalMarkerType;
 
+function CatapultIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M3 17h18" />
+      <path d="m7 17 5-9 4 9" />
+      <path d="M10 12 19 4" />
+      <path d="m18 3 3-1 1 3-3 1Z" />
+      <path d="M5 17v-3h3" />
+      <circle cx="6" cy="19" r="2" />
+      <circle cx="18" cy="19" r="2" />
+    </svg>
+  );
+}
+
 const EMPTY_PLAN = {
   strategy: '',
   objectives: [] as string[],
@@ -67,13 +80,13 @@ const EMPTY_PLAN = {
 const MARKER_META: Record<TacticalMarkerType, {
   label: string;
   color: string;
-  icon: typeof Swords;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
 }> = {
   attack: { label: 'Ataque', color: 'bg-rose-600 border-rose-300', icon: Swords },
   defense: { label: 'Defesa', color: 'bg-sky-600 border-sky-300', icon: Shield },
   rally: { label: 'Reunião', color: 'bg-amber-500 border-amber-200', icon: Flag },
   danger: { label: 'Alerta', color: 'bg-violet-600 border-violet-300', icon: AlertTriangle },
-  catapult: { label: 'CT (Catapulta)', color: 'bg-orange-700 border-orange-200', icon: Castle },
+  catapult: { label: 'CT (Catapulta)', color: 'bg-orange-700 border-orange-200', icon: CatapultIcon },
 };
 
 const ROUTE_COLORS = ['#fb7185', '#38bdf8', '#fbbf24', '#a78bfa', '#34d399'];
