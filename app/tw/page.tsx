@@ -47,6 +47,7 @@ function TWContent() {
   const { clan } = useClan();
   const { confirm, ConfirmDialog } = useConfirm();
   const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin';
+  const canViewPlanning = isAdmin || userData?.isPTLeader === true;
 
   const [activeSessions, setActiveSessions] = useState<TWSession[]>([]);
   const [closedSessions, setClosedSessions] = useState<TWSession[]>([]);
@@ -673,12 +674,12 @@ function TWContent() {
                       </div>
 
                       {/* Planejamento compartilhado e gestão do roster */}
-                      <div className="grid gap-2 px-6 pb-4 sm:grid-cols-2">
-                        <Link href={`/tw/${session.id}/planning`}
+                      {(canViewPlanning || isAdmin) && <div className="grid gap-2 px-6 pb-4 sm:grid-cols-2">
+                        {canViewPlanning && <Link href={`/tw/${session.id}/planning`}
                           className="flex items-center justify-center gap-2 rounded-lg border border-cyan-700/50 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-900/20">
                           <MapPinned className="h-4 w-4" />
                           {isAdmin ? 'Planejar estratégia' : 'Ver estratégia'}
-                        </Link>
+                        </Link>}
                         {isAdmin && (
                           <Link href={`/admin/tw/${session.id}`}
                             className="flex items-center justify-center gap-2 rounded-lg border border-rose-700/50 py-2 text-sm font-semibold text-rose-300 transition hover:bg-rose-900/20">
@@ -686,7 +687,7 @@ function TWContent() {
                             Gerenciar Roster
                           </Link>
                         )}
-                      </div>
+                      </div>}
                     </div>
                   );
                 })}
@@ -747,11 +748,11 @@ function TWContent() {
                               {myVote.canParticipate ? 'Confirmei' : 'Não fui'}
                             </span>
                           )}
-                          <Link href={`/tw/${session.id}/planning`}
+                          {canViewPlanning && <Link href={`/tw/${session.id}/planning`}
                             className="flex items-center gap-1.5 rounded-lg border border-cyan-800/50 bg-cyan-950/20 px-3 py-2 text-xs font-semibold text-cyan-400 transition hover:bg-cyan-900/30 hover:text-cyan-300">
                             <MapPinned className="h-3.5 w-3.5" />
                             Estratégia
-                          </Link>
+                          </Link>}
                         </div>
                       </div>
                     </div>

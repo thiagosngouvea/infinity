@@ -50,6 +50,7 @@ export interface User {
   telefone: string;
   whatsapp: string;
   role: UserRole;
+  isPTLeader?: boolean;
   pontos: number;
   totalPointsEarned: number; // Total de pontos acumulados (nunca diminui)
   clanSlug: string;          // Clã ao qual este usuário pertence (imutável)
@@ -271,7 +272,7 @@ export interface TWRosterEntry {
   personName?: string;
 }
 
-export type TWPlanMarkerType = 'attack' | 'defense' | 'rally' | 'danger' | 'group' | 'member';
+export type TWPlanMarkerType = 'attack' | 'defense' | 'rally' | 'danger' | 'catapult' | 'group' | 'member';
 
 export interface TWPlanPoint {
   x: number; // horizontal position on the map (0-100)
@@ -282,6 +283,7 @@ export interface TWPlanMarker extends TWPlanPoint {
   id: string;
   type: TWPlanMarkerType;
   label: string;
+  size?: number;
   userId?: string;
   groupId?: string;
 }
@@ -291,12 +293,20 @@ export interface TWPlanGroup {
   name: string;
   objective: string;
   memberIds: string[];
+  manualMembers?: TWPlanManualMember[];
+}
+
+export interface TWPlanManualMember {
+  id: string;
+  nick: string;
+  userClass?: string;
 }
 
 export interface TWPlanRoute {
   id: string;
   label: string;
   color: string;
+  width?: number;
   points: TWPlanPoint[];
 }
 

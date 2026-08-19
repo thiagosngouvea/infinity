@@ -16,7 +16,9 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Check,
+  Castle,
   ChevronRight,
   CircleDot,
   Eraser,
@@ -25,7 +27,6 @@ import {
   MousePointer2,
   Plus,
   Pencil,
-  Route,
   Save,
   Shield,
   Sparkles,
@@ -44,6 +45,7 @@ import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import {
   TWPlan,
   TWPlanGroup,
+  TWPlanManualMember,
   TWPlanMarker,
   TWPlanPoint,
   TWPlanRoute,
@@ -51,7 +53,7 @@ import {
   TWSession,
 } from '@/types';
 
-type TacticalMarkerType = 'attack' | 'defense' | 'rally' | 'danger';
+type TacticalMarkerType = 'attack' | 'defense' | 'rally' | 'danger' | 'catapult';
 type PlannerTool = 'select' | 'route' | 'group' | TacticalMarkerType;
 
 const EMPTY_PLAN = {
@@ -71,9 +73,12 @@ const MARKER_META: Record<TacticalMarkerType, {
   defense: { label: 'Defesa', color: 'bg-sky-600 border-sky-300', icon: Shield },
   rally: { label: 'Reunião', color: 'bg-amber-500 border-amber-200', icon: Flag },
   danger: { label: 'Alerta', color: 'bg-violet-600 border-violet-300', icon: AlertTriangle },
+  catapult: { label: 'CT (Catapulta)', color: 'bg-orange-700 border-orange-200', icon: Castle },
 };
 
 const ROUTE_COLORS = ['#fb7185', '#38bdf8', '#fbbf24', '#a78bfa', '#34d399'];
+const DEFAULT_ROUTE_WIDTH = 3;
+const DEFAULT_MARKER_SIZE = 40;
 
 function percentPoint(event: React.MouseEvent | React.PointerEvent, element: HTMLElement): TWPlanPoint {
   const rect = element.getBoundingClientRect();
@@ -98,6 +103,8 @@ function PlanningContent() {
   const { userData } = useAuth();
   const { clan } = useClan();
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapViewportRef = useRef<HTMLDivElement>(null);
+  const mapPanRef = useRef<{ pointerId: number; x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
   const dirtyRef = useRef(false);
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin';
@@ -111,21 +118,87 @@ function PlanningContent() {
   const [dirty, setDirty] = useState(false);
   const [tool, setTool] = useState<PlannerTool>('select');
   const [markerLabel, setMarkerLabel] = useState('');
+  const [markerSize, setMarkerSize] = useState(DEFAULT_MARKER_SIZE);
   const [pendingGroup, setPendingGroup] = useState<TWPlanGroup | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupObjective, setGroupObjective] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+  const [groupManualMembers, setGroupManualMembers] = useState<TWPlanManualMember[]>([]);
+  const [manualMemberNick, setManualMemberNick] = useState('');
+  const [manualMemberClass, setManualMemberClass] = useState('');
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null);
   const [draftRoute, setDraftRoute] = useState<TWPlanPoint[]>([]);
   const [routeLabel, setRouteLabel] = useState('Rota principal');
   const [routeColor, setRouteColor] = useState(ROUTE_COLORS[0]);
+  const [routeWidth, setRouteWidth] = useState(DEFAULT_ROUTE_WIDTH);
+  const [mapZoom, setMapZoom] = useState(1);
   const [objectiveDraft, setObjectiveDraft] = useState('');
   const [mobilePanel, setMobilePanel] = useState<'map' | 'strategy' | 'roster'>('map');
 
   const canEdit = Boolean(isAdmin && !session?.closed);
+
+  useEffect(() => {
+    const viewport = mapViewportRef.current;
+    if (!viewport) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const direction = event.deltaY < 0 ? 0.25 : -0.25;
+      const rect = viewport.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+
+      setMapZoom(current => {
+        const next = Math.max(1, Math.min(5, Number((current + direction).toFixed(2))));
+        if (next === current) return current;
+        const scale = next / current;
+        const nextScrollLeft = (viewport.scrollLeft + pointerX) * scale - pointerX;
+        const nextScrollTop = (viewport.scrollTop + pointerY) * scale - pointerY;
+        requestAnimationFrame(() => {
+          viewport.scrollLeft = nextScrollLeft;
+          viewport.scrollTop = nextScrollTop;
+        });
+        return next;
+      });
+    };
+
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', handleWheel);
+  }, [loading]);
+
+  const startMapPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    const viewport = mapViewportRef.current;
+    if (tool !== 'select' || mapZoom <= 1 || !viewport || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    mapPanRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+    };
+  };
+
+  const moveMapPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    const viewport = mapViewportRef.current;
+    const pan = mapPanRef.current;
+    if (!viewport || !pan || pan.pointerId !== event.pointerId) return;
+    viewport.scrollLeft = pan.scrollLeft - (event.clientX - pan.x);
+    viewport.scrollTop = pan.scrollTop - (event.clientY - pan.y);
+  };
+
+  const stopMapPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (mapPanRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    mapPanRef.current = null;
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -263,6 +336,7 @@ function PlanningContent() {
         id: crypto.randomUUID(),
         type: tool,
         label: markerLabel.trim() || MARKER_META[tool].label,
+        size: markerSize,
         ...point,
       }],
     }));
@@ -295,6 +369,7 @@ function PlanningContent() {
         id: crypto.randomUUID(),
         label: routeLabel.trim() || `Rota ${current.routes.length + 1}`,
         color: routeColor,
+        width: routeWidth,
         points: draftRoute,
       }],
     }));
@@ -307,6 +382,20 @@ function PlanningContent() {
   const removeMarker = (id: string) => {
     setPlanDirty(current => ({ ...current, markers: current.markers.filter(marker => marker.id !== id) }));
     setSelectedMarkerId(null);
+  };
+
+  const resizeMarker = (id: string, size: number) => {
+    setPlanDirty(current => ({
+      ...current,
+      markers: current.markers.map(marker => marker.id === id ? { ...marker, size } : marker),
+    }));
+  };
+
+  const renameMarker = (id: string, label: string) => {
+    setPlanDirty(current => ({
+      ...current,
+      markers: current.markers.map(marker => marker.id === id ? { ...marker, label } : marker),
+    }));
   };
 
   const handleMarkerPointerMove = (event: React.PointerEvent<HTMLButtonElement>, markerId: string) => {
@@ -330,6 +419,9 @@ function PlanningContent() {
     setGroupName('');
     setGroupObjective('');
     setGroupMemberIds([]);
+    setGroupManualMembers([]);
+    setManualMemberNick('');
+    setManualMemberClass('');
     setShowGroupForm(true);
   };
 
@@ -338,6 +430,9 @@ function PlanningContent() {
     setGroupName(group.name);
     setGroupObjective(group.objective);
     setGroupMemberIds(group.memberIds);
+    setGroupManualMembers(group.manualMembers ?? []);
+    setManualMemberNick('');
+    setManualMemberClass('');
     setShowGroupForm(true);
   };
 
@@ -349,6 +444,21 @@ function PlanningContent() {
     setGroupMemberIds(current => [...current, memberId]);
   };
 
+  const addManualGroupMember = () => {
+    const nick = manualMemberNick.trim();
+    if (!nick) {
+      toast.error('Informe o nick do jogador');
+      return;
+    }
+    setGroupManualMembers(current => [...current, {
+      id: crypto.randomUUID(),
+      nick,
+      userClass: manualMemberClass.trim(),
+    }]);
+    setManualMemberNick('');
+    setManualMemberClass('');
+  };
+
   const saveGroup = () => {
     const name = groupName.trim();
     const objective = groupObjective.trim();
@@ -356,7 +466,7 @@ function PlanningContent() {
       toast.error('Informe o nome e o objetivo da PT');
       return;
     }
-    if (groupMemberIds.length === 0) {
+    if (groupMemberIds.length === 0 && groupManualMembers.length === 0) {
       toast.error('Selecione pelo menos um jogador para a PT');
       return;
     }
@@ -366,6 +476,7 @@ function PlanningContent() {
       name,
       objective,
       memberIds: groupMemberIds,
+      manualMembers: groupManualMembers,
     };
     setPlanDirty(current => ({
       ...current,
@@ -517,30 +628,72 @@ function PlanningContent() {
                   const Icon = meta.icon;
                   return <button key={type} onClick={() => { setTool(type); setPendingGroup(null); setDraftRoute([]); }} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${tool === type ? 'bg-white/10 text-white ring-1 ring-white/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><Icon className="h-4 w-4" /><span className="hidden sm:inline">{meta.label}</span></button>;
                 })}
-                <button onClick={() => { setTool('route'); setPendingGroup(null); }} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${tool === 'route' ? 'bg-white/10 text-white ring-1 ring-white/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><Route className="h-4 w-4" /><span className="hidden sm:inline">Rota</span></button>
+                <button onClick={() => { setTool('route'); setPendingGroup(null); }} title="Traçar rota com direção" className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${tool === 'route' ? 'bg-white/10 text-white ring-1 ring-white/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><ArrowRight className="h-4 w-4" /><span className="hidden sm:inline">Rota</span></button>
                 <div className="mx-1 hidden h-6 w-px bg-white/10 sm:block" />
                 {tool !== 'select' && tool !== 'group' && (
                   <input value={tool === 'route' ? routeLabel : markerLabel} onChange={event => tool === 'route' ? setRouteLabel(event.target.value) : setMarkerLabel(event.target.value)} placeholder="Nome da ordem" className="min-w-[130px] flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600 focus:border-rose-500/50" />
                 )}
+                {tool !== 'select' && tool !== 'route' && tool !== 'group' && (
+                  <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[10px] font-semibold text-slate-400" title="Tamanho do pin">
+                    Pin
+                    <input type="range" min="24" max="72" step="4" value={markerSize} onChange={event => setMarkerSize(Number(event.target.value))} className="h-1 w-20 cursor-pointer accent-rose-500" aria-label="Tamanho do pin" />
+                    <span className="w-7 text-right text-white">{markerSize}px</span>
+                  </label>
+                )}
+                {tool === 'select' && selectedMarkerId && (() => {
+                  const selectedMarker = plan.markers.find(marker => marker.id === selectedMarkerId);
+                  if (!selectedMarker) return null;
+                  return (
+                    <>
+                      <input value={selectedMarker.label} onChange={event => renameMarker(selectedMarker.id, event.target.value)} maxLength={40} aria-label="Nome do pin selecionado" className="min-w-[140px] flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-rose-500/50" />
+                      <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[10px] font-semibold text-slate-400" title="Tamanho do pin selecionado">
+                        Tamanho
+                        <input type="range" min="24" max="72" step="4" value={selectedMarker.size ?? DEFAULT_MARKER_SIZE} onChange={event => resizeMarker(selectedMarker.id, Number(event.target.value))} className="h-1 w-24 cursor-pointer accent-rose-500" aria-label="Tamanho do pin selecionado" />
+                        <span className="w-7 text-right text-white">{selectedMarker.size ?? DEFAULT_MARKER_SIZE}px</span>
+                      </label>
+                    </>
+                  );
+                })()}
                 {tool === 'route' && (
                   <>
                     <div className="flex gap-1 px-1">{ROUTE_COLORS.map(color => <button key={color} onClick={() => setRouteColor(color)} className={`h-5 w-5 rounded-full border-2 transition ${routeColor === color ? 'scale-110 border-white' : 'border-transparent'}`} style={{ backgroundColor: color }} aria-label={`Cor ${color}`} />)}</div>
+                    <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[10px] font-semibold text-slate-400" title="Espessura da linha">
+                      Linha
+                      <input type="range" min="1" max="8" step="1" value={routeWidth} onChange={event => setRouteWidth(Number(event.target.value))} className="h-1 w-20 cursor-pointer accent-emerald-500" aria-label="Espessura da linha da rota" />
+                      <span className="w-5 text-right text-white">{routeWidth}px</span>
+                    </label>
                     <button onClick={finishRoute} disabled={draftRoute.length < 2} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-800 disabled:text-slate-600"><Check className="h-3.5 w-3.5" />Concluir ({draftRoute.length})</button>
                     {draftRoute.length > 0 && <button onClick={() => setDraftRoute([])} className="rounded-lg p-2 text-slate-500 hover:bg-white/5 hover:text-white"><Eraser className="h-4 w-4" /></button>}
                   </>
                 )}
               </div>
               <p className="px-2 pt-2 text-[10px] text-slate-600">
-                {tool === 'select' ? 'Arraste os marcadores para reposicionar.' : tool === 'route' ? 'Clique no mapa para marcar o caminho e depois conclua a rota.' : tool === 'group' ? `Clique no mapa para posicionar ${pendingGroup?.name ?? 'a PT selecionada'}.` : `Clique no mapa para adicionar: ${MARKER_META[tool].label}.`}
+                {tool === 'select' ? 'Arraste os marcadores para reposicionar.' : tool === 'route' ? 'Clique na ordem do caminho: a seta apontará para o último ponto.' : tool === 'group' ? `Clique no mapa para posicionar ${pendingGroup?.name ?? 'a PT selecionada'}.` : `Clique no mapa para adicionar: ${MARKER_META[tool].label}.`}
               </p>
             </div>
           )}
 
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/40">
+          <div className="mb-3 flex items-center justify-end gap-2 px-1">
+            <span className="text-[10px] font-semibold text-slate-500" title="Use Ctrl + roda do mouse sobre o mapa">Zoom · Ctrl + roda</span>
+            <button onClick={() => setMapZoom(current => Math.max(1, Number((current - 0.25).toFixed(2))))} disabled={mapZoom <= 1} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-sm font-bold text-slate-300 hover:bg-white/10 disabled:text-slate-700" aria-label="Diminuir zoom">−</button>
+            <input type="range" min="1" max="5" step="0.25" value={mapZoom} onChange={event => setMapZoom(Number(event.target.value))} className="h-1 w-24 cursor-pointer accent-sky-500" aria-label="Zoom do mapa" />
+            <button onClick={() => setMapZoom(current => Math.min(5, Number((current + 0.25).toFixed(2))))} disabled={mapZoom >= 5} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-sm font-bold text-slate-300 hover:bg-white/10 disabled:text-slate-700" aria-label="Aumentar zoom">+</button>
+            <span className="w-10 text-right text-[10px] font-bold text-white">{Math.round(mapZoom * 100)}%</span>
+          </div>
+
+          <div
+            ref={mapViewportRef}
+            onPointerDown={startMapPan}
+            onPointerMove={moveMapPan}
+            onPointerUp={stopMapPan}
+            onPointerCancel={stopMapPan}
+            className={`max-h-[calc(100vh-10rem)] overflow-auto rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/40 ${tool === 'select' && mapZoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          >
             <div
               ref={mapRef}
               onClick={handleMapClick}
               className={`relative aspect-[1024/772] w-full select-none overflow-hidden ${canEdit && tool !== 'select' ? 'cursor-crosshair' : ''}`}
+              style={{ width: `${mapZoom * 100}%` }}
             >
               <Image src="/Mapa_TW.png" alt="Mapa da Territorial War" fill priority sizes="(min-width: 1280px) 60vw, 100vw" draggable={false} className="absolute inset-0 object-cover" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/10" />
@@ -548,17 +701,17 @@ function PlanningContent() {
               <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                   {ROUTE_COLORS.map((color, index) => (
-                    <marker key={color} id={`route-arrow-${index}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <marker key={color} id={`route-arrow-${index}`} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
                       <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
                     </marker>
                   ))}
                 </defs>
-                {plan.routes.map(route => <polyline key={route.id} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="rgba(0,0,0,.75)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />)}
+                {plan.routes.map(route => <polyline key={route.id} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="rgba(0,0,0,.75)" strokeWidth={(route.width ?? DEFAULT_ROUTE_WIDTH) + 1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />)}
                 {plan.routes.map(route => {
                   const colorIndex = Math.max(0, ROUTE_COLORS.indexOf(route.color));
-                  return <polyline key={`${route.id}-color`} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={route.color} strokeWidth="0.55" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#route-arrow-${colorIndex})`} />;
+                  return <polyline key={`${route.id}-color`} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={route.color} strokeWidth={route.width ?? DEFAULT_ROUTE_WIDTH} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#route-arrow-${colorIndex})`} />;
                 })}
-                {draftRoute.length > 0 && <polyline points={draftRoute.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={routeColor} strokeWidth="0.55" strokeDasharray="2 1" vectorEffect="non-scaling-stroke" />}
+                {draftRoute.length > 0 && <polyline points={draftRoute.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={routeColor} strokeWidth={routeWidth} strokeDasharray="6 4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#route-arrow-${Math.max(0, ROUTE_COLORS.indexOf(routeColor))})`} />}
               </svg>
 
               {draftRoute.map((point, index) => <span key={index} className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow" style={{ left: `${point.x}%`, top: `${point.y}%`, backgroundColor: routeColor }} />)}
@@ -586,8 +739,8 @@ function PlanningContent() {
                     style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
                     title={groupData ? `${groupData.name}: ${groupData.objective}` : marker.label}
                   >
-                    <span className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 text-white shadow-[0_2px_8px_rgba(0,0,0,.8)] sm:h-10 sm:w-10 ${isGroup ? 'bg-cyan-700 border-cyan-200' : meta?.color} ${selected ? 'ring-4 ring-white/70' : ''}`}>
-                      {isGroup ? <Users className="h-4 w-4 sm:h-5 sm:w-5" /> : Icon ? <Icon className="h-4 w-4" /> : null}
+                    <span className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 text-white shadow-[0_2px_8px_rgba(0,0,0,.8)] sm:h-10 sm:w-10 ${isGroup ? 'bg-cyan-700 border-cyan-200' : meta?.color} ${selected ? 'ring-4 ring-white/70' : ''}`} style={marker.size ? { width: marker.size, height: marker.size } : undefined}>
+                      {isGroup ? <Users className="h-4 w-4 sm:h-5 sm:w-5" style={marker.size ? { width: marker.size * 0.45, height: marker.size * 0.45 } : undefined} /> : Icon ? <Icon className="h-4 w-4" style={marker.size ? { width: marker.size * 0.45, height: marker.size * 0.45 } : undefined} /> : null}
                       <span className="absolute -bottom-1 h-2 w-2 rotate-45 border-b border-r border-inherit bg-inherit" />
                     </span>
                     <span className={`absolute left-1/2 top-full mt-2 min-w-max -translate-x-1/2 rounded-md bg-black/90 px-2 py-1 text-[9px] font-bold text-white shadow-lg sm:text-[10px] ${selected ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`}>
@@ -601,7 +754,7 @@ function PlanningContent() {
               {selectedMarkerId && canEdit && (() => {
                 const marker = plan.markers.find(item => item.id === selectedMarkerId);
                 if (!marker) return null;
-                return <button onClick={event => { event.stopPropagation(); removeMarker(marker.id); }} className="absolute z-20 -translate-x-1/2 rounded-full bg-rose-600 p-1.5 text-white shadow-xl transition hover:bg-rose-500" style={{ left: `${marker.x}%`, top: `calc(${marker.y}% - 34px)` }} title="Remover marcador"><Trash2 className="h-3.5 w-3.5" /></button>;
+                return <button onClick={event => { event.stopPropagation(); removeMarker(marker.id); }} className="absolute z-20 -translate-x-1/2 rounded-full bg-rose-600 p-1.5 text-white shadow-xl transition hover:bg-rose-500" style={{ left: `${marker.x}%`, top: `calc(${marker.y}% - ${(marker.size ?? DEFAULT_MARKER_SIZE) / 2 + 14}px)` }} title="Remover marcador"><Trash2 className="h-3.5 w-3.5" /></button>;
               })()}
 
               {plan.markers.length === 0 && plan.routes.length === 0 && !canEdit && (
@@ -641,7 +794,7 @@ function PlanningContent() {
             <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-bold text-white">{editingGroupId ? 'Editar PT' : 'Nova PT'}</p>
-                <span className="text-[10px] font-bold text-slate-500">{groupMemberIds.length} selecionados</span>
+                <span className="text-[10px] font-bold text-slate-500">{groupMemberIds.length + groupManualMembers.length} selecionados</span>
               </div>
               <div className="space-y-2.5">
                 <input value={groupName} onChange={event => setGroupName(event.target.value)} maxLength={30} placeholder="Nome da PT (ex: PT Catapulta)" className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-700 focus:border-cyan-500/50" />
@@ -672,6 +825,29 @@ function PlanningContent() {
                 </div>
               )}
 
+              <div className="mt-4 border-t border-white/5 pt-4">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Adicionar manualmente</p>
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
+                  <input value={manualMemberNick} onChange={event => setManualMemberNick(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') addManualGroupMember(); }} maxLength={30} placeholder="Nick *" className="min-w-0 rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-white outline-none placeholder:text-slate-700 focus:border-cyan-500/50" />
+                  <input value={manualMemberClass} onChange={event => setManualMemberClass(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') addManualGroupMember(); }} maxLength={30} placeholder="Classe (opcional)" className="min-w-0 rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-white outline-none placeholder:text-slate-700 focus:border-cyan-500/50" />
+                  <button type="button" onClick={addManualGroupMember} className="rounded-lg bg-white/10 p-2 text-cyan-300 transition hover:bg-white/15" title="Adicionar jogador manual"><Plus className="h-4 w-4" /></button>
+                </div>
+                {groupManualMembers.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {groupManualMembers.map(member => (
+                      <div key={member.id} className="flex items-center gap-2 rounded-lg bg-white/[0.035] px-2.5 py-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-950 text-[8px] font-black text-cyan-200">{markerInitials(member.nick)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[11px] font-semibold text-slate-300">{member.nick}</span>
+                          <span className="block truncate text-[9px] text-slate-600">{member.userClass || 'Sem classe informada'}</span>
+                        </span>
+                        <button type="button" onClick={() => setGroupManualMembers(current => current.filter(item => item.id !== member.id))} className="p-1 text-slate-600 hover:text-rose-400" title="Remover jogador"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button onClick={() => { setShowGroupForm(false); setEditingGroupId(null); }} className="rounded-lg border border-white/10 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/5">Cancelar</button>
                 <button onClick={saveGroup} className="rounded-lg bg-cyan-600 py-2 text-xs font-bold text-white transition hover:bg-cyan-500">Salvar PT</button>
@@ -688,6 +864,7 @@ function PlanningContent() {
               {plan.groups.map(group => {
                 const marker = plan.markers.find(item => item.type === 'group' && item.groupId === group.id);
                 const members = roster.filter(member => group.memberIds.includes(member.userId));
+                const manualMembers = group.manualMembers ?? [];
                 return (
                   <div key={group.id} className="rounded-xl border border-white/5 bg-white/[0.025] p-3">
                     <div className="flex items-start gap-3">
@@ -697,7 +874,7 @@ function PlanningContent() {
                           <p className="truncate text-xs font-bold text-white">{group.name}</p>
                           {marker && <CircleDot className="h-3 w-3 shrink-0 text-cyan-400" />}
                         </div>
-                        <p className="mt-0.5 text-[10px] text-slate-500">{members.length} jogadores</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">{members.length + manualMembers.length} jogadores</p>
                       </div>
                       {canEdit && (
                         <div className="flex gap-1">
@@ -714,6 +891,7 @@ function PlanningContent() {
 
                     <div className="mt-2.5 flex flex-wrap gap-1">
                       {members.map(member => <span key={member.userId} title={member.userClass} className="rounded-md bg-white/5 px-1.5 py-1 text-[9px] text-slate-400">{member.userName}</span>)}
+                      {manualMembers.map(member => <span key={member.id} title={member.userClass || 'Adicionado manualmente'} className="rounded-md bg-cyan-500/10 px-1.5 py-1 text-[9px] text-cyan-300">{member.nick}{member.userClass ? ` · ${member.userClass}` : ''}</span>)}
                     </div>
 
                     {canEdit && (
@@ -734,5 +912,5 @@ function PlanningContent() {
 }
 
 export default function TWPlanningPage() {
-  return <ProtectedRoute><PlanningContent /></ProtectedRoute>;
+  return <ProtectedRoute requirePlanningAccess><PlanningContent /></ProtectedRoute>;
 }

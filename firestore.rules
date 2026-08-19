@@ -26,6 +26,13 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid));
     }
 
+    // Planejamento da TW: admins e membros marcados como líderes de PT
+    function canAccessTWPlanning(clanSlug) {
+      return isClanAdmin(clanSlug) ||
+             (isClanMember(clanSlug) &&
+              get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.isPTLeader == true);
+    }
+
     // ─── Super Admins (coleção global) ───────────────────────────────────────
     // Somente leitura pelo próprio super_admin. Escrita só via Console/Admin SDK.
     match /super_admins/{userId} {
@@ -50,11 +57,15 @@ service cloud.firestore {
                      (isAuthenticated() && request.auth.uid == userId) ||
                      isClanMember(clanSlug);
       // Qualquer autenticado pode CRIAR o próprio doc (registro)
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId &&
+                       request.resource.data.isPTLeader == false;
       // Super admin ou admin do clã pode atualizar, o próprio usuário também
-      allow update, delete: if isSuperAdmin() ||
-                               (isAuthenticated() &&
-                                (request.auth.uid == userId || isClanAdmin(clanSlug)));
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug) ||
+                       (isAuthenticated() && request.auth.uid == userId &&
+                        request.resource.data.isPTLeader == resource.data.isPTLeader);
+      allow delete: if isSuperAdmin() ||
+                       (isAuthenticated() &&
+                        (request.auth.uid == userId || isClanAdmin(clanSlug)));
     }
 
     match /clans/{clanSlug}/users/{userId}/nickHistory/{entryId} {
@@ -147,9 +158,10 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // Planejamento tatico da TW - membros consultam; admins publicam alteracoes
+    // Planejamento tático da TW — somente admins e líderes de PT consultam;
+    // apenas admins publicam alterações.
     match /clans/{clanSlug}/twPlans/{twId} {
-      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow read: if isSuperAdmin() || canAccessTWPlanning(clanSlug);
       allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 

@@ -154,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       clanSlug: clan.slug,
       role: 'pending',
+      isPTLeader: false,
       pontos: 0,
       totalPointsEarned: 0,
       createdAt: new Date(),

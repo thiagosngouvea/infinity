@@ -83,6 +83,18 @@ function AdminMembersContent() {
     }
   };
 
+  const togglePTLeader = async (member: User) => {
+    const nextValue = !member.isPTLeader;
+    try {
+      await updateDoc(clanDoc(clan.slug, COLS.users, member.id), { isPTLeader: nextValue });
+      setMembers(current => current.map(item => item.id === member.id ? { ...item, isPTLeader: nextValue } : item));
+      toast.success(nextValue ? `${member.nick} agora é líder de PT` : `${member.nick} não é mais líder de PT`);
+    } catch (error) {
+      console.error('Erro ao alterar líder de PT:', error);
+      toast.error('Erro ao alterar permissão de líder de PT');
+    }
+  };
+
   const promoteToSuperAdmin = async (userId: string, userName: string) => {
     const confirmed = await confirm({
       title: '⭐ Promover a Super Admin',
@@ -235,7 +247,7 @@ function AdminMembersContent() {
         {/* Contador */}
         {search.trim() && (
           <p className="text-sm text-gray-400 mb-3">
-            {filteredMembers.length} resultado{filteredMembers.length !== 1 ? 's' : ''} para "{search}"
+            {filteredMembers.length} resultado{filteredMembers.length !== 1 ? 's' : ''} para &quot;{search}&quot;
           </p>
         )}
 
@@ -260,6 +272,11 @@ function AdminMembersContent() {
                     )}
                     {member.role === 'admin' && (
                       <Crown className="h-5 w-5 text-yellow-500" />
+                    )}
+                    {member.isPTLeader && (
+                      <span className="flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-1 text-xs font-semibold text-cyan-300 ring-1 ring-cyan-400/30">
+                        <Shield className="h-3.5 w-3.5" /> Líder de PT
+                      </span>
                     )}
                     {member.id === userData?.id && (
                       <span className="px-2 py-1 bg-red-600 rounded-full text-xs text-white">
@@ -300,6 +317,13 @@ function AdminMembersContent() {
                 </div>
 
                 <div className="flex flex-col gap-2 lg:w-48">
+                  <button
+                    onClick={() => togglePTLeader(member)}
+                    className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold text-white transition ${member.isPTLeader ? 'bg-cyan-700 hover:bg-cyan-800' : 'bg-slate-600 hover:bg-slate-700'}`}
+                  >
+                    <Shield className="h-4 w-4" />
+                    {member.isPTLeader ? 'Remover líder de PT' : 'Tornar líder de PT'}
+                  </button>
                   {/* Super Admin só pode ser promovido pelo super_admin logado */}
                   {userData?.role === 'super_admin' && member.role === 'admin' && member.id !== userData?.id && (
                     <button

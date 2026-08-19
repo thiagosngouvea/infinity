@@ -10,15 +10,18 @@ const ADMIN_ROLES = ['admin', 'super_admin'];
 
 export default function ProtectedRoute({ 
   children,
-  requireAdmin = false 
+  requireAdmin = false,
+  requirePlanningAccess = false,
 }: { 
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requirePlanningAccess?: boolean;
 }) {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
 
   const isAdmin = ADMIN_ROLES.includes(userData?.role ?? '');
+  const canAccessPlanning = isAdmin || userData?.isPTLeader === true;
 
   useEffect(() => {
     if (!loading) {
@@ -28,9 +31,11 @@ export default function ProtectedRoute({
         router.push('/pending-approval');
       } else if (requireAdmin && !isAdmin) {
         router.push('/dashboard');
+      } else if (requirePlanningAccess && !canAccessPlanning) {
+        router.push('/tw');
       }
     }
-  }, [user, userData, loading, requireAdmin, router, isAdmin]);
+  }, [user, userData, loading, requireAdmin, requirePlanningAccess, router, isAdmin, canAccessPlanning]);
 
   if (loading) {
     return (
@@ -40,7 +45,7 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!user || userData?.role === 'pending' || (requireAdmin && !isAdmin)) {
+  if (!user || userData?.role === 'pending' || (requireAdmin && !isAdmin) || (requirePlanningAccess && !canAccessPlanning)) {
     return null;
   }
 
