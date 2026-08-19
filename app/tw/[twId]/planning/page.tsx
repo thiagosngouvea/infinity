@@ -118,6 +118,7 @@ function PlanningContent() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapViewportRef = useRef<HTMLDivElement>(null);
   const mapPanRef = useRef<{ pointerId: number; x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+  const drawingRouteRef = useRef<number | null>(null);
   const dirtyRef = useRef(false);
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin';
@@ -147,6 +148,7 @@ function PlanningContent() {
   const [routeLabel, setRouteLabel] = useState('Rota principal');
   const [routeColor, setRouteColor] = useState(ROUTE_COLORS[0]);
   const [routeWidth, setRouteWidth] = useState(DEFAULT_ROUTE_WIDTH);
+  const [routeDrawMode, setRouteDrawMode] = useState<'points' | 'freehand'>('points');
   const [mapZoom, setMapZoom] = useState(1);
   const [objectiveDraft, setObjectiveDraft] = useState('');
   const [mobilePanel, setMobilePanel] = useState<'map' | 'strategy' | 'roster'>('map');
@@ -365,10 +367,38 @@ function PlanningContent() {
     if (!canEdit) return;
     const point = percentPoint(event, mapRef.current);
     if (tool === 'route') {
+      if (routeDrawMode === 'freehand') return;
       setDraftRoute(current => [...current, point]);
       return;
     }
     addMarker(point);
+  };
+
+  const startFreehandRoute = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!canEdit || tool !== 'route' || routeDrawMode !== 'freehand' || event.button !== 0 || !mapRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drawingRouteRef.current = event.pointerId;
+    setDraftRoute([percentPoint(event, mapRef.current)]);
+  };
+
+  const drawFreehandRoute = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (drawingRouteRef.current !== event.pointerId || !mapRef.current) return;
+    const point = percentPoint(event, mapRef.current);
+    setDraftRoute(current => {
+      const previous = current[current.length - 1];
+      if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) < 0.25) return current;
+      return [...current, point];
+    });
+  };
+
+  const stopFreehandRoute = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (drawingRouteRef.current !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    drawingRouteRef.current = null;
   };
 
   const finishRoute = () => {
@@ -669,7 +699,15 @@ function PlanningContent() {
                 })()}
                 {tool === 'route' && (
                   <>
+                    <div className="flex rounded-lg border border-white/10 bg-black/20 p-0.5">
+                      <button type="button" onClick={() => { setRouteDrawMode('points'); setDraftRoute([]); }} className={`rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${routeDrawMode === 'points' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}>Por pontos</button>
+                      <button type="button" onClick={() => { setRouteDrawMode('freehand'); setDraftRoute([]); }} className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${routeDrawMode === 'freehand' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}><Pencil className="h-3 w-3" />Livre</button>
+                    </div>
                     <div className="flex gap-1 px-1">{ROUTE_COLORS.map(color => <button key={color} onClick={() => setRouteColor(color)} className={`h-5 w-5 rounded-full border-2 transition ${routeColor === color ? 'scale-110 border-white' : 'border-transparent'}`} style={{ backgroundColor: color }} aria-label={`Cor ${color}`} />)}</div>
+                    <label className="relative flex h-7 w-7 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40" style={{ backgroundColor: routeColor }} title="Escolher qualquer cor">
+                      <input type="color" value={routeColor} onChange={event => setRouteColor(event.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Escolher qualquer cor para a rota" />
+                      <Plus className="pointer-events-none h-3.5 w-3.5 text-white drop-shadow" />
+                    </label>
                     <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[10px] font-semibold text-slate-400" title="Espessura da linha">
                       Linha
                       <input type="range" min="1" max="8" step="1" value={routeWidth} onChange={event => setRouteWidth(Number(event.target.value))} className="h-1 w-20 cursor-pointer accent-emerald-500" aria-label="Espessura da linha da rota" />
@@ -681,7 +719,7 @@ function PlanningContent() {
                 )}
               </div>
               <p className="px-2 pt-2 text-[10px] text-slate-600">
-                {tool === 'select' ? 'Arraste os marcadores para reposicionar.' : tool === 'route' ? 'Clique na ordem do caminho: a seta apontará para o último ponto.' : tool === 'group' ? `Clique no mapa para posicionar ${pendingGroup?.name ?? 'a PT selecionada'}.` : `Clique no mapa para adicionar: ${MARKER_META[tool].label}.`}
+                {tool === 'select' ? 'Arraste os marcadores para reposicionar.' : tool === 'route' ? routeDrawMode === 'freehand' ? 'Segure e arraste no mapa para desenhar; a seta apontará para o final.' : 'Clique na ordem do caminho: a seta apontará para o último ponto.' : tool === 'group' ? `Clique no mapa para posicionar ${pendingGroup?.name ?? 'a PT selecionada'}.` : `Clique no mapa para adicionar: ${MARKER_META[tool].label}.`}
               </p>
             </div>
           )}
@@ -705,6 +743,10 @@ function PlanningContent() {
             <div
               ref={mapRef}
               onClick={handleMapClick}
+              onPointerDown={startFreehandRoute}
+              onPointerMove={drawFreehandRoute}
+              onPointerUp={stopFreehandRoute}
+              onPointerCancel={stopFreehandRoute}
               className={`relative aspect-[1024/772] w-full select-none overflow-hidden ${canEdit && tool !== 'select' ? 'cursor-crosshair' : ''}`}
               style={{ width: `${mapZoom * 100}%` }}
             >
@@ -713,21 +755,23 @@ function PlanningContent() {
 
               <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
-                  {ROUTE_COLORS.map((color, index) => (
-                    <marker key={color} id={`route-arrow-${index}`} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-                      <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+                  {plan.routes.map(route => (
+                    <marker key={route.id} id={`route-arrow-${route.id}`} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill={route.color} />
                     </marker>
                   ))}
+                  <marker id="route-arrow-draft" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill={routeColor} />
+                  </marker>
                 </defs>
                 {plan.routes.map(route => <polyline key={route.id} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="rgba(0,0,0,.75)" strokeWidth={(route.width ?? DEFAULT_ROUTE_WIDTH) + 1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />)}
                 {plan.routes.map(route => {
-                  const colorIndex = Math.max(0, ROUTE_COLORS.indexOf(route.color));
-                  return <polyline key={`${route.id}-color`} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={route.color} strokeWidth={route.width ?? DEFAULT_ROUTE_WIDTH} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#route-arrow-${colorIndex})`} />;
+                  return <polyline key={`${route.id}-color`} points={route.points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={route.color} strokeWidth={route.width ?? DEFAULT_ROUTE_WIDTH} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#route-arrow-${route.id})`} />;
                 })}
-                {draftRoute.length > 0 && <polyline points={draftRoute.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={routeColor} strokeWidth={routeWidth} strokeDasharray="6 4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#route-arrow-${Math.max(0, ROUTE_COLORS.indexOf(routeColor))})`} />}
+                {draftRoute.length > 0 && <polyline points={draftRoute.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke={routeColor} strokeWidth={routeWidth} strokeDasharray={routeDrawMode === 'freehand' ? undefined : '6 4'} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" markerEnd="url(#route-arrow-draft)" />}
               </svg>
 
-              {draftRoute.map((point, index) => <span key={index} className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow" style={{ left: `${point.x}%`, top: `${point.y}%`, backgroundColor: routeColor }} />)}
+              {routeDrawMode === 'points' && draftRoute.map((point, index) => <span key={index} className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow" style={{ left: `${point.x}%`, top: `${point.y}%`, backgroundColor: routeColor }} />)}
 
               {plan.markers.map(marker => {
                 const isGroup = marker.type === 'group';
