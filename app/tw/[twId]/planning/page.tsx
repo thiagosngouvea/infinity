@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import {
   getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -97,6 +98,7 @@ function PlanningContent() {
   const { userData } = useAuth();
   const { clan } = useClan();
   const mapRef = useRef<HTMLDivElement>(null);
+  const dirtyRef = useRef(false);
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin';
   const [session, setSession] = useState<TWSession | null>(null);
@@ -127,10 +129,9 @@ function PlanningContent() {
 
   const loadData = useCallback(async () => {
     try {
-      const [sessionSnap, rosterSnap, planSnap] = await Promise.all([
+      const [sessionSnap, rosterSnap] = await Promise.all([
         getDoc(clanDoc(clan.slug, COLS.twSessions, twId)),
         getDocs(query(clanCol(clan.slug, COLS.twRoster), where('twId', '==', twId))),
-        getDoc(clanDoc(clan.slug, COLS.twPlans, twId)),
       ]);
 
       if (!sessionSnap.exists()) {
@@ -157,18 +158,6 @@ function PlanningContent() {
       rosterData.sort((a, b) => a.userName.localeCompare(b.userName));
       setRoster(rosterData);
 
-      if (planSnap.exists()) {
-        const data = planSnap.data() as Omit<TWPlan, 'id' | 'updatedAt'> & { updatedAt?: { toDate?: () => Date } };
-        setPlan({
-          strategy: data.strategy ?? '',
-          objectives: data.objectives ?? [],
-          markers: (data.markers ?? []).filter(marker => marker.type !== 'member'),
-          routes: data.routes ?? [],
-          groups: data.groups ?? [],
-        });
-        setUpdatedAt(data.updatedAt?.toDate?.() ?? null);
-        setUpdatedByName(data.updatedByName ?? '');
-      }
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível carregar o planejamento');
@@ -181,8 +170,38 @@ function PlanningContent() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const planRef = clanDoc(clan.slug, COLS.twPlans, twId);
+    return onSnapshot(planRef, snapshot => {
+      // Preserve um rascunho local ainda não publicado pelo administrador.
+      if (dirtyRef.current) return;
+
+      if (!snapshot.exists()) {
+        setPlan(EMPTY_PLAN);
+        setUpdatedAt(null);
+        setUpdatedByName('');
+        return;
+      }
+
+      const data = snapshot.data() as Omit<TWPlan, 'id' | 'updatedAt'> & { updatedAt?: { toDate?: () => Date } };
+      setPlan({
+        strategy: data.strategy ?? '',
+        objectives: data.objectives ?? [],
+        markers: (data.markers ?? []).filter(marker => marker.type !== 'member'),
+        routes: data.routes ?? [],
+        groups: data.groups ?? [],
+      });
+      setUpdatedAt(data.updatedAt?.toDate?.() ?? null);
+      setUpdatedByName(data.updatedByName ?? '');
+    }, error => {
+      console.error(error);
+      toast.error('Não foi possível acompanhar o planejamento em tempo real');
+    });
+  }, [clan.slug, twId]);
+
   const setPlanDirty = useCallback((updater: (current: typeof EMPTY_PLAN) => typeof EMPTY_PLAN) => {
     setPlan(current => updater(current));
+    dirtyRef.current = true;
     setDirty(true);
   }, []);
 
@@ -197,6 +216,7 @@ function PlanningContent() {
         updatedByName: userData.nick,
         updatedAt: serverTimestamp(),
       });
+      dirtyRef.current = false;
       setDirty(false);
       setUpdatedAt(new Date());
       setUpdatedByName(userData.nick);

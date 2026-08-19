@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
 import { query, where, getDocs, getDoc, addDoc, deleteDoc, updateDoc, increment, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TWSession, TWVote, TWRosterEntry, User } from '@/types';
+import { PlayerClass, TWSession, TWVote, TWRosterEntry, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Sword, Users, Plus, X, Check, Search, UserPlus, Coins, Archive, KeyRound, MapPinned } from 'lucide-react';
@@ -28,20 +28,52 @@ const CLASS_COLORS: Record<string, string> = {
   Espiritualista: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
 };
 
-function AddMemberModal({ open, onClose, onAdd, allMembers, rosterUserIds, processing }: {
+const PLAYER_CLASSES: PlayerClass[] = [
+  'Guerreiro', 'Arqueiro', 'Mago', 'Sacerdote', 'Bárbaro', 'Arcano',
+  'Mistico', 'Feiticeira', 'Mercenário', 'Espiritualista',
+];
+
+type ManualRosterMember = {
+  nick: string;
+  playerClass: PlayerClass;
+  contact?: string;
+  personName?: string;
+};
+
+function AddMemberModal({ open, onClose, onAdd, onAddManual, allMembers, rosterUserIds, processing }: {
   open: boolean; onClose: () => void; onAdd: (m: User) => Promise<void>;
+  onAddManual: (m: ManualRosterMember) => Promise<void>;
   allMembers: User[]; rosterUserIds: Set<string>; processing: boolean;
 }) {
   const [search, setSearch] = useState('');
+  const [nick, setNick] = useState('');
+  const [playerClass, setPlayerClass] = useState<PlayerClass | ''>('');
+  const [contact, setContact] = useState('');
+  const [personName, setPersonName] = useState('');
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allMembers.filter(m => !rosterUserIds.has(m.id) && (!q || m.nick?.toLowerCase().includes(q)));
   }, [search, allMembers, rosterUserIds]);
 
+  const submitManual = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!nick.trim() || !playerClass) return;
+    await onAddManual({
+      nick: nick.trim(),
+      playerClass,
+      contact: contact.trim() || undefined,
+      personName: personName.trim() || undefined,
+    });
+    setNick('');
+    setPlayerClass('');
+    setContact('');
+    setPersonName('');
+  };
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-gray-700">
           <div className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-rose-400" />
@@ -50,13 +82,14 @@ function AddMemberModal({ open, onClose, onAdd, allMembers, rosterUserIds, proce
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
         <div className="p-4 border-b border-gray-700">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Membro cadastrado</p>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nick..."
               autoFocus className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-9 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-rose-500 text-sm" />
           </div>
         </div>
-        <div className="overflow-y-auto max-h-72 p-3 space-y-1">
+        <div className="overflow-y-auto max-h-52 p-3 space-y-1">
           {filtered.length === 0 ? (
             <p className="text-gray-500 text-sm text-center py-6">{search ? 'Nenhum membro encontrado' : 'Todos os membros já estão no roster'}</p>
           ) : filtered.map(m => (
@@ -70,6 +103,37 @@ function AddMemberModal({ open, onClose, onAdd, allMembers, rosterUserIds, proce
             </button>
           ))}
         </div>
+        <form onSubmit={submitManual} className="space-y-3 border-t border-gray-700 p-4">
+          <div>
+            <p className="text-sm font-semibold text-white">Pessoa sem cadastro</p>
+            <p className="text-xs text-gray-400">Nick e classe são obrigatórios.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="text-xs text-gray-300">Nick *
+              <input required value={nick} onChange={e => setNick(e.target.value)} placeholder="Nick no jogo"
+                className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-rose-500 focus:outline-none" />
+            </label>
+            <label className="text-xs text-gray-300">Classe *
+              <select required value={playerClass} onChange={e => setPlayerClass(e.target.value as PlayerClass)}
+                className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-rose-500 focus:outline-none">
+                <option value="">Selecione</option>
+                {PLAYER_CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+              </select>
+            </label>
+            <label className="text-xs text-gray-300">Contato (opcional)
+              <input value={contact} onChange={e => setContact(e.target.value)} placeholder="WhatsApp, Discord..."
+                className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-rose-500 focus:outline-none" />
+            </label>
+            <label className="text-xs text-gray-300">Nome da pessoa (opcional)
+              <input value={personName} onChange={e => setPersonName(e.target.value)} placeholder="Nome real"
+                className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-rose-500 focus:outline-none" />
+            </label>
+          </div>
+          <button type="submit" disabled={processing || !nick.trim() || !playerClass}
+            className="w-full rounded-lg bg-rose-600 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">
+            {processing ? 'Adicionando...' : 'Adicionar ao roster'}
+          </button>
+        </form>
         <div className="p-4 border-t border-gray-700">
           <button onClick={onClose} className="w-full py-2 text-sm text-gray-400 hover:text-white transition">Fechar</button>
         </div>
@@ -146,6 +210,39 @@ function AdminTWRosterContent() {
       await loadData();
     } catch (err) {
       toast.error('Erro ao adicionar ao roster');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const addManualToRoster = async (member: ManualRosterMember) => {
+    if (!userData || !session) return;
+    const duplicate = roster.some(entry => entry.userName.trim().toLowerCase() === member.nick.toLowerCase());
+    if (duplicate) {
+      toast.error('Já existe um jogador com esse nick no roster');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      await addDoc(clanCol(clan.slug, COLS.twRoster), {
+        twId,
+        userId: `manual:${crypto.randomUUID()}`,
+        userName: member.nick,
+        userClass: member.playerClass,
+        selectedBy: userData.id,
+        selectedAt: new Date(),
+        rosterPointsAwarded: false,
+        isManual: true,
+        ...(member.contact ? { contact: member.contact } : {}),
+        ...(member.personName ? { personName: member.personName } : {}),
+      });
+      toast.success(`${member.nick} adicionado manualmente ao roster!`);
+      setShowAddModal(false);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao adicionar jogador manualmente');
     } finally {
       setProcessing(false);
     }
@@ -292,6 +389,8 @@ function AdminTWRosterContent() {
                 <div key={entry.id} className="flex items-center justify-between bg-gray-700/60 rounded-lg px-4 py-3 border border-gray-600">
                   <div>
                     <p className="text-white font-semibold">{entry.userName}</p>
+                    {entry.personName && <p className="text-xs text-gray-400">{entry.personName}</p>}
+                    {entry.contact && <p className="text-xs text-cyan-300">{entry.contact}</p>}
                     <span className={`text-xs px-2 py-0.5 rounded-full border ${CLASS_COLORS[entry.userClass] || 'bg-gray-600 text-gray-300 border-gray-500'}`}>
                       {entry.userClass}
                     </span>
@@ -415,7 +514,8 @@ function AdminTWRosterContent() {
       </div>
 
       <AddMemberModal open={showAddModal} onClose={() => setShowAddModal(false)}
-        onAdd={addToRoster} allMembers={allMembers} rosterUserIds={rosterUserIds} processing={processing} />
+        onAdd={addToRoster} onAddManual={addManualToRoster} allMembers={allMembers}
+        rosterUserIds={rosterUserIds} processing={processing} />
       <ConfirmDialog />
     </div>
   );
