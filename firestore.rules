@@ -1,182 +1,475 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ─── Helpers ─────────────────────────────────────────────────────────────
-
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Super Admin global — tem acesso a TODOS os clãs, mas é invisível neles
+    function isSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     function isSuperAdmin() {
-      return isAuthenticated() &&
-             exists(/databases/$(database)/documents/super_admins/$(request.auth.uid));
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/super_admins/$(request.auth.uid));
     }
 
-    // Admin ou Super Admin de um clã específico
-    function isClanAdmin(clanSlug) {
-      let role = get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role;
-      return isAuthenticated() && (role == 'admin' || role == 'super_admin');
-    }
-
-    // Membro de um clã (tem documento na subcoleção)
+    // Pending accounts can only read their own document. They are not members.
     function isClanMember(clanSlug) {
-      return isAuthenticated() &&
-             exists(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid));
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role
+          in ['member', 'admin', 'super_admin'];
     }
 
-    // Planejamento da TW: admins e membros marcados como líderes de PT
+    function isClanAdmin(clanSlug) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role
+          in ['admin', 'super_admin'];
+    }
+
     function canAccessTWPlanning(clanSlug) {
-      return isClanAdmin(clanSlug) ||
-             (isClanMember(clanSlug) &&
-              get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.isPTLeader == true);
+      return isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.isPTLeader == true);
     }
 
-    // ─── Super Admins (coleção global) ───────────────────────────────────────
-    // Somente leitura pelo próprio super_admin. Escrita só via Console/Admin SDK.
+    function isValidNewRegistration(clanSlug, userId) {
+      let data = request.resource.data;
+      return isSelf(userId)
+        && data.keys().hasAll([
+          'email', 'nick', 'classe', 'telefone', 'whatsapp', 'clanSlug',
+          'role', 'isPTLeader', 'pontos', 'totalPointsEarned', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'email', 'nick', 'classe', 'telefone', 'whatsapp', 'clanSlug',
+          'role', 'isPTLeader', 'pontos', 'totalPointsEarned', 'createdAt'
+        ])
+        && data.email == request.auth.token.email
+        && data.email is string
+        && data.nick is string
+        && data.nick.size() > 0
+        && data.classe is string
+        && data.telefone is string
+        && data.whatsapp is string
+        && data.clanSlug == clanSlug
+        && data.role == 'pending'
+        && data.isPTLeader == false
+        && data.pontos == 0
+        && data.totalPointsEarned == 0
+        && data.createdAt == request.time;
+    }
+
+    function isValidLegacyMigration(clanSlug, userId) {
+      let legacyPath = /databases/$(database)/documents/users/$(userId);
+      return isSelf(userId)
+        && clanSlug == 'infinity'
+        && exists(legacyPath)
+        && request.resource.data.clanSlug == clanSlug
+        && request.resource.data.diff(get(legacyPath).data).affectedKeys().hasOnly(['clanSlug']);
+    }
+
+    function userCanUpdateOwnProfile() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'nick', 'classe', 'telefone', 'whatsapp'
+      ])
+        && request.resource.data.nick is string
+        && request.resource.data.nick.size() > 0
+        && request.resource.data.classe is string
+        && request.resource.data.telefone is string
+        && request.resource.data.whatsapp is string;
+    }
+
+    function clanAdminCanUpdateUser() {
+      return resource.data.role != 'super_admin'
+        && request.resource.data.role in ['pending', 'rejected', 'member', 'admin']
+        && request.resource.data.get('clanSlug', '') == resource.data.get('clanSlug', '')
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
+    }
+
+    function pointFieldsChangedOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'pontos', 'totalPointsEarned', 'lastPointAction'
+      ]);
+    }
+
+    function validSelfAttendanceAward(clanSlug, userId) {
+      let action = request.resource.data.get('lastPointAction', {});
+      let dayKey = action.get('sourceId', '');
+      let checkInPath = /databases/$(database)/documents/clans/$(clanSlug)/users/$(userId)/attendances/$(dayKey);
+      return action.get('type', '') == 'attendance'
+        && action.get('amount', 0) == 10
+        && !exists(checkInPath)
+        && getAfter(checkInPath).data.userId == userId
+        && getAfter(checkInPath).data.pontos == 10
+        && request.resource.data.pontos == resource.data.pontos + 10
+        && request.resource.data.totalPointsEarned == resource.data.totalPointsEarned + 10;
+    }
+
+    function validSelfEventVoteAward(clanSlug, userId) {
+      let action = request.resource.data.get('lastPointAction', {});
+      let eventId = action.get('sourceId', '');
+      let votePath = /databases/$(database)/documents/clans/$(clanSlug)/eventVotes/$(eventId + '_' + userId);
+      let eventPath = /databases/$(database)/documents/clans/$(clanSlug)/events/$(eventId);
+      return action.get('type', '') == 'event_vote'
+        && action.get('amount', 0) > 0
+        && !exists(votePath)
+        && getAfter(votePath).data.userId == userId
+        && getAfter(votePath).data.eventId == eventId
+        && getAfter(votePath).data.votingPointsAwarded == true
+        && get(eventPath).data.get('pointsForVoting', 5) == action.amount
+        && request.resource.data.pontos == resource.data.pontos + action.amount
+        && request.resource.data.totalPointsEarned == resource.data.totalPointsEarned + action.amount;
+    }
+
+    function validSelfTWVoteAward(clanSlug, userId) {
+      let action = request.resource.data.get('lastPointAction', {});
+      let twId = action.get('sourceId', '');
+      let votePath = /databases/$(database)/documents/clans/$(clanSlug)/twVotes/$(twId + '_' + userId);
+      let sessionPath = /databases/$(database)/documents/clans/$(clanSlug)/twSessions/$(twId);
+      let vote = getAfter(votePath).data;
+      let session = get(sessionPath).data;
+      let expected = (vote.canParticipate ? session.pointsForVoting : 0)
+        + (vote.canLendAccount ? session.get('pointsForLending', 0) : 0);
+      return action.get('type', '') == 'tw_vote'
+        && action.get('amount', 0) > 0
+        && !exists(votePath)
+        && vote.userId == userId
+        && vote.twId == twId
+        && action.amount == expected
+        && vote.votingPointsAwarded == (vote.canParticipate && session.pointsForVoting > 0)
+        && vote.lendingPointsAwarded == (vote.canLendAccount && session.get('pointsForLending', 0) > 0)
+        && request.resource.data.pontos == resource.data.pontos + expected
+        && request.resource.data.totalPointsEarned == resource.data.totalPointsEarned + expected;
+    }
+
+    function validSelfRedemptionDebit(clanSlug, userId) {
+      let action = request.resource.data.get('lastPointAction', {});
+      let redemptionId = action.get('sourceId', '');
+      let redemptionPath = /databases/$(database)/documents/clans/$(clanSlug)/redemptions/$(redemptionId);
+      let redemption = getAfter(redemptionPath).data;
+      return action.get('type', '') == 'redemption'
+        && action.get('amount', 0) > 0
+        && !exists(redemptionPath)
+        && redemption.userId == userId
+        && redemption.pointsSpent == action.amount
+        && request.resource.data.pontos == resource.data.pontos - action.amount
+        && request.resource.data.pontos >= 0
+        && request.resource.data.totalPointsEarned == resource.data.totalPointsEarned;
+    }
+
+    function validSelfPointsUpdate(clanSlug, userId) {
+      return isSelf(userId)
+        && isClanMember(clanSlug)
+        && pointFieldsChangedOnly()
+        && (validSelfAttendanceAward(clanSlug, userId)
+          || validSelfEventVoteAward(clanSlug, userId)
+          || validSelfTWVoteAward(clanSlug, userId)
+          || validSelfRedemptionDebit(clanSlug, userId));
+    }
+
     match /super_admins/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isSelf(userId);
       allow write: if false;
     }
 
-    // ─── Clans (config white-label) ───────────────────────────────────────────
-    // Leitura pública — necessário para carregar o tema antes do login
     match /clans/{clanSlug} {
+      // Public because the theme is loaded before authentication.
       allow read: if true;
-      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, delete: if isSuperAdmin();
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // ─── Dados scoped por clã ─────────────────────────────────────────────────
-
     match /clans/{clanSlug}/users/{userId} {
-      // Super admin pode ler qualquer usuário de qualquer clã
-      // Usuário pode sempre ler o próprio doc (necessário para login)
-      // Membros do clã podem ler outros membros
-      allow read: if isSuperAdmin() ||
-                     (isAuthenticated() && request.auth.uid == userId) ||
-                     isClanMember(clanSlug);
-      // Qualquer autenticado pode CRIAR o próprio doc (registro)
-      allow create: if isAuthenticated() && request.auth.uid == userId &&
-                       request.resource.data.isPTLeader == false;
-      // Super admin ou admin do clã pode atualizar, o próprio usuário também
-      allow update: if isSuperAdmin() || isClanAdmin(clanSlug) ||
-                       (isAuthenticated() && request.auth.uid == userId &&
-                        request.resource.data.isPTLeader == resource.data.isPTLeader);
-      allow delete: if isSuperAdmin() ||
-                       (isAuthenticated() &&
-                        (request.auth.uid == userId || isClanAdmin(clanSlug)));
+      allow read: if isSuperAdmin()
+        || isClanAdmin(clanSlug)
+        || isSelf(userId)
+        || (isClanMember(clanSlug) && resource.data.role in ['member', 'admin', 'super_admin']);
+      allow create: if isValidNewRegistration(clanSlug, userId)
+        || isValidLegacyMigration(clanSlug, userId);
+      allow update: if isSuperAdmin()
+        || (isClanAdmin(clanSlug) && clanAdminCanUpdateUser())
+        || (isClanMember(clanSlug) && isSelf(userId) && userCanUpdateOwnProfile())
+        || validSelfPointsUpdate(clanSlug, userId);
+      allow delete: if isSuperAdmin()
+        || (isClanAdmin(clanSlug) && resource.data.role != 'super_admin');
     }
 
     match /clans/{clanSlug}/users/{userId}/nickHistory/{entryId} {
-      allow read, create: if isSuperAdmin() ||
-                            (isAuthenticated() && request.auth.uid == userId) ||
-                            isClanAdmin(clanSlug);
+      allow read: if isSuperAdmin() || isClanAdmin(clanSlug) || isSelf(userId);
+      allow create: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && isSelf(userId)
+          && request.resource.data.keys().hasAll(['nick', 'previousNick', 'changedAt', 'changedBy'])
+          && request.resource.data.keys().hasOnly(['nick', 'previousNick', 'changedAt', 'changedBy'])
+          && request.resource.data.changedBy == request.auth.uid
+          && request.resource.data.changedAt == request.time);
+      allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
+    // Secure daily check-ins use YYYYDDD (UTC) as a deterministic document ID.
+    match /clans/{clanSlug}/users/{userId}/attendances/{dayKey} {
+      allow read: if isSuperAdmin() || isClanAdmin(clanSlug) || isSelf(userId);
+      allow create: if isClanMember(clanSlug)
+        && isSelf(userId)
+        && dayKey.matches('^[0-9]{7}$')
+        && int(dayKey) == request.time.year() * 1000 + request.time.dayOfYear()
+        && request.resource.data.keys().hasAll([
+          'userId', 'userName', 'date', 'pontos', 'createdBy', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'userId', 'userName', 'date', 'pontos', 'createdBy', 'createdAt'
+        ])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.userName == get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(userId)).data.nick
+        && request.resource.data.pontos == 10
+        && request.resource.data.date == request.time
+        && request.resource.data.createdAt == request.time
+        && get(/databases/$(database)/documents/clans/$(clanSlug)).data.get('attendanceEnabled', true) != false
+        && getAfter(/databases/$(database)/documents/clans/$(clanSlug)/users/$(userId)).data.lastPointAction.type == 'attendance'
+        && getAfter(/databases/$(database)/documents/clans/$(clanSlug)/users/$(userId)).data.lastPointAction.sourceId == dayKey;
       allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/events/{eventId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, update: if (isSuperAdmin() || isClanAdmin(clanSlug))
+        && request.resource.data.get('pointsForVoting', 5) >= 0
+        && request.resource.data.get('pointsForAttendance', 20) >= 0;
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
+    function validMemberEventVoteCreate(clanSlug, eventId, voteId) {
+      let data = request.resource.data;
+      let event = get(/databases/$(database)/documents/clans/$(clanSlug)/events/$(eventId)).data;
+      let userAfter = getAfter(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data;
+      return isClanMember(clanSlug)
+        && voteId == eventId + '_' + request.auth.uid
+        && data.keys().hasAll([
+          'eventId', 'userId', 'userName', 'canParticipate', 'votingPointsAwarded', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'eventId', 'userId', 'userName', 'canParticipate', 'comment', 'votingPointsAwarded', 'createdAt'
+        ])
+        && data.eventId == eventId
+        && data.userId == request.auth.uid
+        && data.userName == get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.nick
+        && data.canParticipate is bool
+        && data.createdAt == request.time
+        && ((event.get('pointsForVoting', 5) == 0 && data.votingPointsAwarded == false)
+          || (event.get('pointsForVoting', 5) > 0
+            && data.votingPointsAwarded == true
+            && userAfter.lastPointAction.type == 'event_vote'
+            && userAfter.lastPointAction.sourceId == eventId
+            && userAfter.lastPointAction.amount == event.get('pointsForVoting', 5)));
     }
 
     match /clans/{clanSlug}/eventVotes/{voteId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow create: if isSuperAdmin() || isClanMember(clanSlug);
-      allow update: if isSuperAdmin() ||
-                       (isClanMember(clanSlug) &&
-                        (request.auth.uid == resource.data.userId || isClanAdmin(clanSlug)));
-      allow delete: if isSuperAdmin() ||
-                       (isClanMember(clanSlug) && request.auth.uid == resource.data.userId);
+      allow create: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || validMemberEventVoteCreate(clanSlug, request.resource.data.eventId, voteId);
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.eventId == resource.data.eventId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['canParticipate', 'comment']));
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && resource.data.userId == request.auth.uid
+          && resource.data.get('votingPointsAwarded', false) == false);
     }
 
+    // Legacy attendance remains readable; member writes use the path above.
     match /clans/{clanSlug}/attendances/{attendanceId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow create: if isSuperAdmin() || isClanMember(clanSlug);
-      allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/raffles/{raffleId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
       allow create, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
-      allow update: if isSuperAdmin() || isClanMember(clanSlug);
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && resource.data.status == 'open'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants'])
+          && request.resource.data.participants is list
+          && request.resource.data.participants.size() == resource.data.participants.size() + 1
+          && request.resource.data.participants.hasAll(resource.data.participants)
+          && request.auth.uid in request.resource.data.participants
+          && !(request.auth.uid in resource.data.participants));
     }
 
     match /clans/{clanSlug}/notifications/{notifId} {
-      allow read: if isSuperAdmin() ||
-                     (isClanMember(clanSlug) && request.auth.uid == resource.data.userId);
-      allow update: if isSuperAdmin() ||
-                       (isClanMember(clanSlug) && request.auth.uid == resource.data.userId);
-      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow read: if isSuperAdmin()
+        || (isClanMember(clanSlug) && resource.data.userId == request.auth.uid);
+      allow create: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+          && request.resource.data.read is bool);
       allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
+    function validMemberItemDebit(clanSlug, itemId) {
+      let redemptionId = request.resource.data.get('lastRedemptionId', '');
+      let redemptionPath = /databases/$(database)/documents/clans/$(clanSlug)/redemptions/$(redemptionId);
+      let redemption = getAfter(redemptionPath).data;
+      return isClanMember(clanSlug)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'lastRedemptionId'])
+        && request.resource.data.stock == resource.data.stock - 1
+        && request.resource.data.stock >= 0
+        && !exists(redemptionPath)
+        && redemption.userId == request.auth.uid
+        && redemption.itemId == itemId
+        && redemption.pointsSpent == resource.data.pointsCost;
     }
 
     match /clans/{clanSlug}/items/{itemId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug) || validMemberItemDebit(clanSlug, itemId);
+    }
+
+    function validMemberRedemption(clanSlug, redemptionId) {
+      let data = request.resource.data;
+      let itemPath = /databases/$(database)/documents/clans/$(clanSlug)/items/$(data.itemId);
+      let userPath = /databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid);
+      let itemBefore = get(itemPath).data;
+      let itemAfter = getAfter(itemPath).data;
+      let userBefore = get(userPath).data;
+      let userAfter = getAfter(userPath).data;
+      return isClanMember(clanSlug)
+        && data.keys().hasAll([
+          'itemId', 'itemName', 'userId', 'userName', 'pointsSpent', 'status', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'itemId', 'itemName', 'userId', 'userName', 'pointsSpent', 'status', 'createdAt'
+        ])
+        && data.userId == request.auth.uid
+        && data.userName == userBefore.nick
+        && data.itemName == itemBefore.name
+        && data.pointsSpent == itemBefore.pointsCost
+        && data.pointsSpent > 0
+        && data.status == 'pending'
+        && data.createdAt == request.time
+        && itemBefore.active == true
+        && itemBefore.stock > 0
+        && itemAfter.stock == itemBefore.stock - 1
+        && itemAfter.lastRedemptionId == redemptionId
+        && userBefore.pontos >= data.pointsSpent
+        && userAfter.pontos == userBefore.pontos - data.pointsSpent
+        && userAfter.totalPointsEarned == userBefore.totalPointsEarned
+        && userAfter.lastPointAction.type == 'redemption'
+        && userAfter.lastPointAction.sourceId == redemptionId
+        && userAfter.lastPointAction.amount == data.pointsSpent;
     }
 
     match /clans/{clanSlug}/redemptions/{redemptionId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow create: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || validMemberRedemption(clanSlug, redemptionId);
       allow update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/pointsAudit/{auditId} {
-      allow read, write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow read, create, update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
     match /clans/{clanSlug}/tutorials/{tutorialId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // ─── Territory War ────────────────────────────────────────────────────────
-
-    // Sessões de TW — leitura por membros, escrita apenas admin
     match /clans/{clanSlug}/twSessions/{twId} {
       allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
-    }
-
-    // Votos de TW — membros criam/deletam o próprio voto, admin pode tudo
-    match /clans/{clanSlug}/twVotes/{voteId} {
-      allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow create: if isSuperAdmin() || isClanMember(clanSlug);
-      allow update: if isSuperAdmin() ||
-                       (isClanMember(clanSlug) &&
-                        (request.auth.uid == resource.data.userId || isClanAdmin(clanSlug)));
-      allow delete: if isSuperAdmin() ||
-                       (isClanMember(clanSlug) && request.auth.uid == resource.data.userId) ||
-                       isClanAdmin(clanSlug);
-    }
-
-    // Roster de TW — somente admin gerencia; membros só leem
-    match /clans/{clanSlug}/twRoster/{entryId} {
-      allow read: if isSuperAdmin() || isClanMember(clanSlug);
-      allow create, update: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, update: if (isSuperAdmin() || isClanAdmin(clanSlug))
+        && request.resource.data.pointsForVoting >= 0
+        && request.resource.data.pointsForRoster >= 0
+        && request.resource.data.get('pointsForLending', 0) >= 0;
       allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // Planejamento tático da TW — somente admins e líderes de PT consultam;
-    // apenas admins publicam alterações.
+    function twVoteAwardAmount(clanSlug, twId, data) {
+      let session = get(/databases/$(database)/documents/clans/$(clanSlug)/twSessions/$(twId)).data;
+      return (data.canParticipate ? session.pointsForVoting : 0)
+        + (data.canLendAccount ? session.get('pointsForLending', 0) : 0);
+    }
+
+    function validMemberTWVoteCreate(clanSlug, twId, voteId) {
+      let data = request.resource.data;
+      let session = get(/databases/$(database)/documents/clans/$(clanSlug)/twSessions/$(twId)).data;
+      let amount = twVoteAwardAmount(clanSlug, twId, data);
+      let userAfter = getAfter(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data;
+      return isClanMember(clanSlug)
+        && voteId == twId + '_' + request.auth.uid
+        && data.keys().hasAll([
+          'twId', 'userId', 'userName', 'userClass', 'canParticipate',
+          'canLendAccount', 'votingPointsAwarded', 'lendingPointsAwarded', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'twId', 'userId', 'userName', 'userClass', 'canParticipate',
+          'canLendAccount', 'votingPointsAwarded', 'lendingPointsAwarded', 'createdAt'
+        ])
+        && data.twId == twId
+        && data.userId == request.auth.uid
+        && data.userName == get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.nick
+        && data.userClass == get(/databases/$(database)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.classe
+        && data.canParticipate is bool
+        && data.canLendAccount is bool
+        && data.createdAt == request.time
+        && data.votingPointsAwarded == (data.canParticipate && session.pointsForVoting > 0)
+        && data.lendingPointsAwarded == (data.canLendAccount && session.get('pointsForLending', 0) > 0)
+        && (amount == 0
+          || (amount > 0
+            && userAfter.lastPointAction.type == 'tw_vote'
+            && userAfter.lastPointAction.sourceId == twId
+            && userAfter.lastPointAction.amount == amount));
+    }
+
+    match /clans/{clanSlug}/twVotes/{voteId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || validMemberTWVoteCreate(clanSlug, request.resource.data.twId, voteId);
+      allow update: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.twId == resource.data.twId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['canParticipate', 'canLendAccount']));
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug)
+        || (isClanMember(clanSlug)
+          && resource.data.userId == request.auth.uid
+          && resource.data.get('votingPointsAwarded', false) == false
+          && resource.data.get('lendingPointsAwarded', false) == false);
+    }
+
+    match /clans/{clanSlug}/twRoster/{entryId} {
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create, update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
+    }
+
     match /clans/{clanSlug}/twPlans/{twId} {
       allow read: if isSuperAdmin() || canAccessTWPlanning(clanSlug);
-      allow write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow create, update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
-
-    // Contas 0800 — acesso exclusivo para admins e super_admins
 
     match /clans/{clanSlug}/accounts0800/{docId} {
-      allow read, write: if isSuperAdmin() || isClanAdmin(clanSlug);
+      allow read, create, update, delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // ─── Coleção legada /users (raiz) — somente para migração ────────────────
-    // Permite que usuários autenticados leiam o próprio doc antigo.
-    // Pode ser removida após todos os usuários serem migrados.
     match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isSelf(userId);
       allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

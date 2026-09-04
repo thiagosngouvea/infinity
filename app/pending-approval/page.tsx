@@ -13,7 +13,7 @@ export default function PendingApproval() {
   useEffect(() => {
     if (!user) {
       router.push('/login');
-    } else if (userData && userData.role !== 'pending') {
+    } else if (userData && userData.role !== 'pending' && userData.role !== 'rejected') {
       router.push('/dashboard');
     }
   }, [user, userData, router]);
@@ -43,8 +43,10 @@ export default function PendingApproval() {
 
         <div className="bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700">
           <div className="text-center mb-6">
-            <Clock className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Aguardando Aprovação</h2>
+            <Clock className={`h-16 w-16 mx-auto mb-4 ${userData.role === 'rejected' ? 'text-red-500' : 'text-yellow-500'}`} />
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {userData.role === 'rejected' ? 'Cadastro não aprovado' : 'Aguardando Aprovação'}
+            </h2>
           </div>
 
           <div className="space-y-4 mb-6">
@@ -64,9 +66,11 @@ export default function PendingApproval() {
             </div>
           </div>
 
-          <div className="p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg mb-6">
-            <p className="text-sm text-yellow-200">
-              Seu cadastro foi enviado com sucesso! Um administrador do clã irá analisar suas informações e aprovar sua conta em breve.
+          <div className={`p-4 rounded-lg mb-6 border ${userData.role === 'rejected' ? 'bg-red-900/30 border-red-700' : 'bg-yellow-900/30 border-yellow-700'}`}>
+            <p className={`text-sm ${userData.role === 'rejected' ? 'text-red-200' : 'text-yellow-200'}`}>
+              {userData.role === 'rejected'
+                ? 'Seu cadastro não foi aprovado. Entre em contato com um administrador do clã para mais informações.'
+                : 'Seu cadastro foi enviado com sucesso! Um administrador do clã irá analisar suas informações e aprovar sua conta em breve.'}
             </p>
           </div>
 

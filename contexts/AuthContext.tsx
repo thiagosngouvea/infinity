@@ -8,7 +8,7 @@ import {
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { clanDoc, COLS, superAdminDoc } from '@/lib/paths';
 import { User } from '@/types';
@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isPTLeader: false,
       pontos: 0,
       totalPointsEarned: 0,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
     });
   };
 

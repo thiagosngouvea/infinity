@@ -27,7 +27,7 @@ export default function ProtectedRoute({
     if (!loading) {
       if (!user) {
         router.push('/login');
-      } else if (userData?.role === 'pending') {
+      } else if (userData?.role === 'pending' || userData?.role === 'rejected') {
         router.push('/pending-approval');
       } else if (requireAdmin && !isAdmin) {
         router.push('/dashboard');
@@ -45,7 +45,7 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!user || userData?.role === 'pending' || (requireAdmin && !isAdmin) || (requirePlanningAccess && !canAccessPlanning)) {
+  if (!user || userData?.role === 'pending' || userData?.role === 'rejected' || (requireAdmin && !isAdmin) || (requirePlanningAccess && !canAccessPlanning)) {
     return null;
   }
 

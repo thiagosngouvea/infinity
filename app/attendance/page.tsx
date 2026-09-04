@@ -4,9 +4,20 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
-import { query, where, getDocs, addDoc, orderBy, updateDoc, increment } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  increment,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
 import { Attendance } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
+import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import { CheckCircle, ArrowLeft, Calendar, Award } from 'lucide-react';
 import Link from 'next/link';
@@ -40,13 +51,35 @@ function AttendanceContent() {
         where('userId', '==', userData.id),
         orderBy('date', 'desc')
       );
-      const snapshot = await getDocs(attendanceQuery);
-      const list = snapshot.docs.map(doc => ({
+      const secureAttendanceQuery = query(
+        collection(
+          db,
+          'clans', clan.slug,
+          COLS.users, userData.id,
+          COLS.attendances,
+        ),
+        orderBy('date', 'desc'),
+      );
+
+      const [legacySnapshot, secureSnapshot] = await Promise.all([
+        getDocs(attendanceQuery),
+        getDocs(secureAttendanceQuery),
+      ]);
+
+      const legacyList = legacySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         date: doc.data().date.toDate(),
         createdAt: doc.data().createdAt.toDate()
       } as Attendance));
+      const secureList = secureSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date.toDate(),
+        createdAt: doc.data().createdAt.toDate()
+      } as Attendance));
+      const list = [...secureList, ...legacyList]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setAttendances(list);
 
       const today = new Date();
@@ -69,18 +102,37 @@ function AttendanceContent() {
     if (!userData) return;
     try {
       const pontos = 10;
-      await addDoc(clanCol(clan.slug, COLS.attendances), {
+      const now = new Date();
+      const year = now.getUTCFullYear();
+      const startOfYear = Date.UTC(year, 0, 0);
+      const dayOfYear = Math.floor((Date.UTC(year, now.getUTCMonth(), now.getUTCDate()) - startOfYear) / 86400000);
+      const dayKey = `${year}${String(dayOfYear).padStart(3, '0')}`;
+      const batch = writeBatch(db);
+
+      batch.set(doc(
+        db,
+        'clans', clan.slug,
+        COLS.users, userData.id,
+        COLS.attendances, dayKey,
+      ), {
         userId: userData.id,
         userName: userData.nick,
-        date: new Date(),
+        date: serverTimestamp(),
         pontos,
         createdBy: userData.id,
-        createdAt: new Date()
+        createdAt: serverTimestamp(),
       });
-      await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
+
+      batch.update(clanDoc(clan.slug, COLS.users, userData.id), {
         pontos: increment(pontos),
-        totalPointsEarned: increment(pontos)
+        totalPointsEarned: increment(pontos),
+        lastPointAction: {
+          type: 'attendance',
+          sourceId: dayKey,
+          amount: pontos,
+        },
       });
+      await batch.commit();
       toast.success(`Presença registrada! +${pontos} pontos`);
       await refreshUserData();
       loadAttendances();

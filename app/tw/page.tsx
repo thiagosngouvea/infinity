@@ -9,11 +9,11 @@ import {
   where,
   getDocs,
   addDoc,
-  deleteDoc,
   updateDoc,
   increment,
   writeBatch,
   orderBy,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { TWSession, TWVote, User } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
@@ -264,50 +264,55 @@ function TWContent() {
     setVoting(twId);
     try {
       const existing = myVotes[twId];
-      const isFirstVote = !existing;
       setEditingVoteId(null);
-
-      // Remover voto anterior se existir
-      if (existing) {
-        await deleteDoc(clanDoc(clan.slug, COLS.twVotes, existing.id));
-      }
 
       const ptsLending = session.pointsForLending ?? 0;
 
-      // Criar novo voto
-      await addDoc(clanCol(clan.slug, COLS.twVotes), {
-        twId,
-        userId: userData.id,
-        userName: userData.nick,
-        userClass: userData.classe,
-        canParticipate,
-        canLendAccount,
-        votingPointsAwarded: isFirstVote && canParticipate && session.pointsForVoting > 0,
-        lendingPointsAwarded: isFirstVote && canLendAccount && ptsLending > 0,
-        createdAt: new Date(),
-      });
-
-      // Dar pontos se for primeira confirmação positiva ou empréstimo de conta
-      if (isFirstVote && canParticipate && session.pointsForVoting > 0) {
-        await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
-          pontos: increment(session.pointsForVoting),
-          totalPointsEarned: increment(session.pointsForVoting),
+      if (existing) {
+        // Preserve award flags so an edit can never issue the same reward twice.
+        await updateDoc(clanDoc(clan.slug, COLS.twVotes, existing.id), {
+          canParticipate,
+          canLendAccount,
         });
-        toast.success(`Presença confirmada! +${session.pointsForVoting} pontos`);
-        await refreshUserData();
-      } else if (isFirstVote && canLendAccount && ptsLending > 0) {
-        await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
-          pontos: increment(ptsLending),
-          totalPointsEarned: increment(ptsLending),
-        });
-        toast.success(`Conta disponibilizada! +${ptsLending} pontos extras`);
-        await refreshUserData();
-      } else if (canParticipate) {
-        toast.success('Presença confirmada!');
-      } else if (canLendAccount) {
-        toast.success('Conta disponibilizada para empréstimo!');
+        toast.success('Voto atualizado!');
       } else {
-        toast.success('Voto registrado');
+        const awardedPoints = (canParticipate ? session.pointsForVoting : 0)
+          + (canLendAccount ? ptsLending : 0);
+        const voteId = `${twId}_${userData.id}`;
+        const batch = writeBatch(db);
+
+        batch.set(clanDoc(clan.slug, COLS.twVotes, voteId), {
+          twId,
+          userId: userData.id,
+          userName: userData.nick,
+          userClass: userData.classe,
+          canParticipate,
+          canLendAccount,
+          votingPointsAwarded: canParticipate && session.pointsForVoting > 0,
+          lendingPointsAwarded: canLendAccount && ptsLending > 0,
+          createdAt: serverTimestamp(),
+        });
+
+        if (awardedPoints > 0) {
+          batch.update(clanDoc(clan.slug, COLS.users, userData.id), {
+            pontos: increment(awardedPoints),
+            totalPointsEarned: increment(awardedPoints),
+            lastPointAction: {
+              type: 'tw_vote',
+              sourceId: twId,
+              amount: awardedPoints,
+            },
+          });
+        }
+
+        await batch.commit();
+
+        if (awardedPoints > 0) {
+          toast.success(`Voto registrado! +${awardedPoints} pontos`);
+          await refreshUserData();
+        } else {
+          toast.success('Voto registrado');
+        }
       }
 
       await loadData();

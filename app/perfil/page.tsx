@@ -5,8 +5,8 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
 import {
-  doc,
   updateDoc,
+  serverTimestamp,
   collection,
   addDoc,
   getDocs,
@@ -14,7 +14,7 @@ import {
   query,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { clanDoc, clanCol, COLS } from '@/lib/paths';
+import { clanDoc, COLS } from '@/lib/paths';
 import { NickHistoryEntry, PlayerClass } from '@/types';
 import {
   Shield,
@@ -175,7 +175,7 @@ function PerfilContent() {
         await addDoc(histCol, {
           nick: nick.trim(),
           previousNick: userData.nick,
-          changedAt: new Date(),
+          changedAt: serverTimestamp(),
           changedBy: user.uid,
         });
         await loadHistory();

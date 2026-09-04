@@ -7,6 +7,7 @@ import { useClan } from '@/contexts/ClanContext';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { db } from '@/lib/firebase';
 import {
+  collection,
   getDoc,
   getDocs,
   limit,
@@ -141,7 +142,8 @@ function AdminPointsContent() {
       setAbsolutePoints(u.pontos ?? 0);
 
       const [
-        attendancesSnap,
+        legacyAttendancesSnap,
+        secureAttendancesSnap,
         eventVotesSnap,
         twVotesSnap,
         twRosterSnap,
@@ -149,6 +151,12 @@ function AdminPointsContent() {
         auditSnap,
       ] = await Promise.all([
         getDocs(query(clanCol(clan.slug, COLS.attendances), where('userId', '==', userId), limit(300))),
+        getDocs(query(collection(
+          db,
+          'clans', clan.slug,
+          COLS.users, userId,
+          COLS.attendances,
+        ), limit(300))),
         getDocs(query(clanCol(clan.slug, COLS.eventVotes), where('userId', '==', userId), limit(500))),
         getDocs(query(clanCol(clan.slug, COLS.twVotes), where('userId', '==', userId), limit(500))),
         getDocs(query(clanCol(clan.slug, COLS.twRoster), where('userId', '==', userId), limit(500))),
@@ -156,7 +164,7 @@ function AdminPointsContent() {
         getDocs(query(clanCol(clan.slug, COLS.pointsAudit), where('userId', '==', userId), limit(500))),
       ]);
 
-      const attendances = attendancesSnap.docs.map(d => {
+      const attendances = [...secureAttendancesSnap.docs, ...legacyAttendancesSnap.docs].map(d => {
         const data = d.data();
         return {
           id: d.id,

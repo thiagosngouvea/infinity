@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
-import { query, where, getDocs, runTransaction } from 'firebase/firestore';
+import { query, where, getDocs, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Item, Redemption } from '@/types';
+import { Item } from '@/types';
 import { clanCol, clanDoc, COLS } from '@/lib/paths';
 import { ShoppingBag, ArrowLeft, Coins, Package, AlertCircle, Check, Settings, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -83,6 +83,8 @@ function StoreContent() {
         }
 
         const currentStock = itemDoc.data().stock;
+        const currentCost = itemDoc.data().pointsCost;
+        const currentItemName = itemDoc.data().name;
 
         // Verificar se tem estoque
         if (currentStock <= 0) {
@@ -90,25 +92,37 @@ function StoreContent() {
         }
 
         // Descontar pontos do usuário
+        if (currentPoints < currentCost) {
+          throw new Error('Pontos insuficientes');
+        }
+
+        const redemptionId = crypto.randomUUID();
+        const redemptionRef = clanDoc(clan.slug, COLS.redemptions, redemptionId);
+
         transaction.update(userRef, {
-          pontos: currentPoints - selectedItem.pointsCost
+          pontos: currentPoints - currentCost,
+          lastPointAction: {
+            type: 'redemption',
+            sourceId: redemptionId,
+            amount: currentCost,
+          },
         });
 
         // Descontar estoque do item
         transaction.update(itemRef, {
-          stock: currentStock - 1
+          stock: currentStock - 1,
+          lastRedemptionId: redemptionId,
         });
 
         // Criar registro de resgate
-        const redemptionRef = clanDoc(clan.slug, COLS.redemptions, crypto.randomUUID());
         transaction.set(redemptionRef, {
           itemId: selectedItem.id,
-          itemName: selectedItem.name,
+          itemName: currentItemName,
           userId: userData.id,
           userName: userData.nick,
-          pointsSpent: selectedItem.pointsCost,
+          pointsSpent: currentCost,
           status: 'pending',
-          createdAt: new Date()
+          createdAt: serverTimestamp(),
         });
       });
 
@@ -120,9 +134,9 @@ function StoreContent() {
 
       // Limpar mensagem de sucesso após 5 segundos
       setTimeout(() => setSuccessMessage(''), 5000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao resgatar item:', error);
-      alert(error.message || 'Erro ao resgatar item. Tente novamente.');
+      alert(error instanceof Error ? error.message : 'Erro ao resgatar item. Tente novamente.');
     } finally {
       setRedeeming(false);
     }

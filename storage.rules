@@ -1,47 +1,64 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    // Logos dos clãs — leitura pública, escrita apenas autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated()
+        && firestore.exists(/databases/(default)/documents/super_admins/$(request.auth.uid));
+    }
+
+    function isClanAdmin(clanSlug) {
+      return isAuthenticated()
+        && firestore.get(/databases/(default)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role
+          in ['admin', 'super_admin'];
+    }
+
+    function isClanMember(clanSlug) {
+      return isAuthenticated()
+        && firestore.get(/databases/(default)/documents/clans/$(clanSlug)/users/$(request.auth.uid)).data.role
+          in ['member', 'admin', 'super_admin'];
+    }
+
+    function isImageUnder(maxBytes) {
+      return request.resource.size < maxBytes
+        && request.resource.contentType.matches('image/.*');
+    }
+
     match /clans/{clanSlug}/logo {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024  // max 5MB
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if (isSuperAdmin() || isClanAdmin(clanSlug))
+        && isImageUnder(5 * 1024 * 1024);
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // Tutoriais — PDFs (max 20 MB) e Vídeos (max 200 MB)
-    // A restrição de papel (somente admins veem o botão) é aplicada no app.
     match /clans/{clanSlug}/tutorials/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && (
-        (request.resource.contentType == 'application/pdf'
-          && request.resource.size < 20 * 1024 * 1024)   // PDF: max 20 MB
-        ||
-        (request.resource.contentType.matches('video/.*')
-          && request.resource.size < 200 * 1024 * 1024)  // Vídeo: max 200 MB
-      );
-      allow delete: if request.auth != null;
+      allow read: if isSuperAdmin() || isClanMember(clanSlug);
+      allow create, update: if (isSuperAdmin() || isClanAdmin(clanSlug))
+        && ((request.resource.contentType == 'application/pdf'
+            && request.resource.size < 20 * 1024 * 1024)
+          || (request.resource.contentType.matches('video/.*')
+            && request.resource.size < 200 * 1024 * 1024));
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // Banners de eventos — autenticado, imagem, máx 10 MB
     match /clans/{clanSlug}/events/{eventId}/banner {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 10 * 1024 * 1024  // max 10 MB
-                   && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null;
+      allow create, update: if (isSuperAdmin() || isClanAdmin(clanSlug))
+        && isImageUnder(10 * 1024 * 1024);
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // Imagens genéricas do clã (itens da loja, etc.) — autenticado, máx 10 MB
     match /clans/{clanSlug}/images/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 10 * 1024 * 1024  // max 10 MB
-                   && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null;
+      allow create, update: if (isSuperAdmin() || isClanAdmin(clanSlug))
+        && isImageUnder(10 * 1024 * 1024);
+      allow delete: if isSuperAdmin() || isClanAdmin(clanSlug);
     }
 
-    // Regra padrão: bloquear tudo que não foi explicitamente permitido
     match /{allPaths=**} {
       allow read, write: if false;
     }

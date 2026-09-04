@@ -68,7 +68,10 @@ export default function LiveRaffleListener() {
         try {
           // Carregar nomes de todos os usuários para mapeamento ID -> Nick
           const names: { [key: string]: string } = {};
-          const membersSnap = await getDocs(clanCol(clan.slug, COLS.users));
+          const membersSnap = await getDocs(query(
+            clanCol(clan.slug, COLS.users),
+            where('role', 'in', ['member', 'admin', 'super_admin']),
+          ));
           membersSnap.docs.forEach((userDoc) => {
             names[userDoc.id] = userDoc.data()?.nick || 'Usuário';
           });

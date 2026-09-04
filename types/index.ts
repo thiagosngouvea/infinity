@@ -28,7 +28,7 @@ export interface ClanConfig {
 
 // ─── Auth & Users ──────────────────────────────────────────────────────────────
 
-export type UserRole = 'pending' | 'member' | 'admin' | 'super_admin';
+export type UserRole = 'pending' | 'rejected' | 'member' | 'admin' | 'super_admin';
 
 export type PlayerClass = 
   | 'Guerreiro' 
@@ -57,6 +57,11 @@ export interface User {
   createdAt: Date;
   approvedAt?: Date;
   approvedBy?: string;
+  lastPointAction?: {
+    type: 'attendance' | 'event_vote' | 'tw_vote' | 'redemption';
+    sourceId: string;
+    amount: number;
+  };
 }
 
 export interface NickHistoryEntry {
@@ -173,6 +178,7 @@ export interface Item {
   active: boolean;
   createdBy: string;
   createdAt: Date;
+  lastRedemptionId?: string;
 }
 
 export interface Redemption {

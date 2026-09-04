@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClan } from '@/contexts/ClanContext';
-import { query, where, getDocs, addDoc, orderBy, deleteDoc, updateDoc, increment, writeBatch } from 'firebase/firestore';
+import { query, where, getDocs, addDoc, orderBy, deleteDoc, updateDoc, increment, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Event, EventVote, User } from '@/types';
@@ -267,35 +267,48 @@ function EventsContent() {
       const event = events.find(e => e.id === eventId);
       if (!event) return;
 
-      const isFirstVote = !myVotes[eventId];
+      const existingVote = myVotes[eventId];
 
-      // Verificar se já votou
-      if (myVotes[eventId]) {
-        await deleteDoc(clanDoc(clan.slug, COLS.eventVotes, myVotes[eventId].id));
-      }
-
-      // Criar novo voto
-      await addDoc(clanCol(clan.slug, COLS.eventVotes), {
-        eventId,
-        userId: userData.id,
-        userName: userData.nick,
-        canParticipate,
-        comment,
-        votingPointsAwarded: isFirstVote, // Marca que já recebeu pontos por votar
-        createdAt: new Date()
-      });
-
-      // Dar pontos apenas se for o primeiro voto
-      if (isFirstVote && event.pointsForVoting > 0) {
-        await updateDoc(clanDoc(clan.slug, COLS.users, userData.id), {
-          pontos: increment(event.pointsForVoting),
-          totalPointsEarned: increment(event.pointsForVoting)
+      if (existingVote) {
+        // Preserve the award marker and update only fields owned by the member.
+        await updateDoc(clanDoc(clan.slug, COLS.eventVotes, existingVote.id), {
+          canParticipate,
+          comment,
         });
-        toast.success(`Voto registrado! +${event.pointsForVoting} pontos`);
-        // Atualizar dados do usuário para refletir os novos pontos
-        await refreshUserData();
-      } else {
         toast.success('Voto atualizado!');
+      } else {
+        const voteId = `${eventId}_${userData.id}`;
+        const batch = writeBatch(db);
+        batch.set(clanDoc(clan.slug, COLS.eventVotes, voteId), {
+          eventId,
+          userId: userData.id,
+          userName: userData.nick,
+          canParticipate,
+          comment,
+          votingPointsAwarded: event.pointsForVoting > 0,
+          createdAt: serverTimestamp(),
+        });
+
+        if (event.pointsForVoting > 0) {
+          batch.update(clanDoc(clan.slug, COLS.users, userData.id), {
+            pontos: increment(event.pointsForVoting),
+            totalPointsEarned: increment(event.pointsForVoting),
+            lastPointAction: {
+              type: 'event_vote',
+              sourceId: eventId,
+              amount: event.pointsForVoting,
+            },
+          });
+        }
+
+        await batch.commit();
+
+        if (event.pointsForVoting > 0) {
+          toast.success(`Voto registrado! +${event.pointsForVoting} pontos`);
+          await refreshUserData();
+        } else {
+          toast.success('Voto registrado!');
+        }
       }
 
       loadEvents();
